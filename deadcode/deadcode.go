@@ -146,11 +146,21 @@ func (p *Package) Visit(node ast.Node) ast.Visitor {
 		for _, value := range n.Values {
 			ast.Walk(&u, value)
 		}
+		// variable types.
+		if n.Type != nil {
+			ast.Walk(&u, n.Type)
+		}
 	case *ast.BlockStmt:
 		// - function bodies
 		for _, stmt := range n.List {
 			ast.Walk(&u, stmt)
 		}
+	case *ast.FuncDecl:
+		// - function signatures
+		ast.Walk(&u, n.Type)
+	case *ast.TypeSpec:
+		// - type declarations
+		ast.Walk(&u, n.Type)
 	}
 	return p
 }
