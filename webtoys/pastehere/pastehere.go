@@ -1,4 +1,4 @@
-package main
+package pastehere
 
 import (
 	"bufio"
@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-var logger = log.New(os.Stderr, "pastehere: ", log.Lshortfile|log.Ldate|log.Ltime)
+var logger = log.New(os.Stderr, "pastehere ", log.Lshortfile|log.Ldate|log.Ltime)
 
 const homePage = `
 <html>
@@ -28,11 +28,11 @@ const homePage = `
 </head>
 <body>
   <h1>Paste here!</h1>
-  <form action="/paste" method="POST" enctype="multipart/form-data">
+  <form action="paste" method="POST" enctype="multipart/form-data">
      <p>Select a file: <input type="file" id="file" name="file" size="30" />
      <input type="submit" value="Upload" id="upload_button"/></p>
   </form>
-  <form action="/paste" method="POST">
+  <form action="paste" method="POST">
     <textarea id="textarea" name="content" cols="80" rows="20"></textarea>
     <input type="submit" value="Paste" name="process"/>
   </form>
@@ -146,13 +146,13 @@ func Paste(resp http.ResponseWriter, req *http.Request) {
 			name, mime, key, [3]uint16(key), len(contents))
 	}
 	allPastes[key] = Item(contents)
-	fmt.Fprintf(resp, "http://%s/view/%s", req.Host, key)
+	fmt.Fprintf(resp, "http://%s/pastehere/view/%s", req.Host, key)
 }
 
 func View(resp http.ResponseWriter, req *http.Request) {
 	go logRequest(req)
 	p := req.URL.Path
-	p, _ = filepath.Rel("/view", p)
+	p, _ = filepath.Rel("/pastehere/view", p)
 	t := strings.Split(p, "/")
 	var dirs [3]string
 	if len(t) != 3 {
@@ -173,16 +173,16 @@ func View(resp http.ResponseWriter, req *http.Request) {
 	io.Copy(resp, buf)
 }
 
-var (
-	address string
-)
+func init() {
+	http.HandleFunc("/pastehere/", Home)
+	http.HandleFunc("/pastehere/paste", Paste)
+	http.HandleFunc("/pastehere/view/", View)
+}
 
 func main() {
+	var address string
 	flag.StringVar(&address, "http", ":8080", "listen address")
 	flag.Parse()
-	http.HandleFunc("/", Home)
-	http.HandleFunc("/paste", Paste)
-	http.HandleFunc("/view/", View)
 	if address == "" {
 		flag.Usage()
 		return

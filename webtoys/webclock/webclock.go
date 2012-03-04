@@ -1,4 +1,4 @@
-package main
+package webclock
 
 import (
 	"flag"
@@ -16,8 +16,9 @@ var logger = log.New(os.Stderr, "webclock ", log.LstdFlags|log.Lshortfile)
 var addr string
 
 func init() {
-	http.HandleFunc("/", index)
-	http.Handle("/ws", websocket.Handler(handle))
+	http.HandleFunc("/webclock", index)
+	http.Handle("/webclock/ws", websocket.Handler(handle))
+	logger.Printf("registered webclock at /webclock and /webclock/ws")
 }
 
 const indexHtml = `
@@ -39,7 +40,7 @@ const indexHtml = `
 			if (conn) conn.close();
 			try {
 				$("#ticks").empty();
-				conn = new WS("ws://%s/ws");
+				conn = new WS("ws://%s/webclock/ws");
 				conn.onopen = function() {
 					// connection opening is asynchronous.
 					var req = $("#freq").val();
@@ -70,7 +71,7 @@ const indexHtml = `
 `
 
 func index(resp http.ResponseWriter, req *http.Request) {
-	logger.Printf("new http client: %s", req.RemoteAddr)
+	logger.Printf("GET %s from %s", req.URL, req.RemoteAddr)
 	fmt.Fprintf(resp, indexHtml, req.Host)
 }
 
