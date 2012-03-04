@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 
+	_ "github.com/remyoudompheng/go-misc/webtoys/irc"
 	_ "github.com/remyoudompheng/go-misc/webtoys/pastehere"
 	_ "github.com/remyoudompheng/go-misc/webtoys/webclock"
 )
@@ -15,6 +16,7 @@ import (
 var logger = log.New(os.Stderr, "webtoys ", log.LstdFlags)
 
 var toys = []string{
+	"irc",
 	"pastehere",
 	"webclock",
 }
