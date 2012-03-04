@@ -71,7 +71,7 @@ const indexHtml = `
 
 func index(resp http.ResponseWriter, req *http.Request) {
 	logger.Printf("new http client: %s", req.RemoteAddr)
-	fmt.Fprintf(resp, indexHtml, addr)
+	fmt.Fprintf(resp, indexHtml, req.Host)
 }
 
 func handle(conn *websocket.Conn) {
