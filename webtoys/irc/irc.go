@@ -1,6 +1,7 @@
 package irc
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
 	"log"
@@ -11,6 +12,7 @@ import (
 
 	"code.google.com/p/go.net/websocket"
 	"encoding/json"
+	"time"
 )
 
 var logger = log.New(os.Stderr, "irc ", log.LstdFlags|log.Lshortfile)
@@ -29,7 +31,7 @@ const (
 
 type Client struct {
 	*textproto.Conn
-	lines chan string
+	lines chan Event
 }
 
 func NewClient(server, nick string) (c *Client, err error) {
@@ -43,7 +45,7 @@ func NewClient(server, nick string) (c *Client, err error) {
 	conn.Cmd("USER %s %d %s :%s", "webtoy", 0, "*", "Anonymous Guest")
 	c = &Client{
 		Conn:  conn,
-		lines: make(chan string, 8),
+		lines: make(chan Event, 8),
 	}
 	go c.ReadLines()
 	return c, nil
@@ -60,9 +62,15 @@ func (cli *Client) ReadLines() error {
 		if err != nil {
 			return err
 		}
-		cli.lines <- line
+		prefix, command, args := parseIrcLine(line)
+		cli.HandleEvent(command, prefix, args)
 	}
 	panic("unreachable")
+}
+
+type Event struct {
+	Line    string `json:"line,omitempty"`
+	Message string `json:"system,omitempty"`
 }
 
 func parseIrcLine(line string) (prefix, command string, args []string) {
@@ -93,18 +101,56 @@ func parseIrcLine(line string) (prefix, command string, args []string) {
 	return "", items[0], items[1:]
 }
 
-func formatIrcLine(prefix, command string, args []string) string {
+var (
+	messageTplS = `<span class="date">{{ .Time }}</span>
+	<span class="to">{{ .To }}</span>
+	<span class="from" style="{{ colorNick .From }}">{{ .From }}</span>
+	<span class="message">{{ .Message }}</span>`
+	messageTpl = template.Must(template.New("line").
+			Funcs(template.FuncMap{"colorNick": colorNick}).
+			Parse(messageTplS))
+)
+
+func colorNick(s string) template.CSS {
+	hue := uint(0)
+	for _, c := range s {
+		hue *= 17
+		hue += uint(c)
+	}
+	style := fmt.Sprintf("color: hsl(%d, 40%%, 50%%)", hue%360)
+	return template.CSS(style)
+}
+
+func (cli *Client) HandleEvent(command, prefix string, args []string) {
 	switch command {
 	case "PRIVMSG":
 		if i := strings.Index(prefix, "!"); i >= 0 {
 			prefix = prefix[:i]
 		}
+		buf := new(bytes.Buffer)
+		type Msg struct{ From, To, Time, Message string }
+		var msg Msg
 		if len(args) != 2 {
-			return fmt.Sprintf("%.10s: %v", prefix, args)
+			msg = Msg{From: prefix, To: "", Time: time.Now().Format("15:04:05"),
+				Message: fmt.Sprintf("%v", args)}
+		} else {
+			msg = Msg{From: prefix, To: args[0], Time: time.Now().Format("15:04:05"),
+				Message: args[1]}
 		}
-		return fmt.Sprintf("(%.10s) %.10s: %v", args[0], prefix, args[1])
+		err := messageTpl.Execute(buf, msg)
+		if err == nil {
+			cli.lines <- Event{Line: buf.String()}
+		} else {
+			cli.lines <- Event{Message: err.Error()}
+		}
+	case "PING":
+		if len(args) > 0 {
+			cli.Cmd("PONG %s", args[0])
+		}
+		cli.lines <- Event{Message: fmt.Sprintf("/%s %v", command, args)}
+	default:
+		cli.lines <- Event{Message: fmt.Sprintf("/%s %v", command, args)}
 	}
-	return fmt.Sprintf("/%s %v", command, args)
 }
 
 type Form struct {
@@ -134,13 +180,17 @@ func connect(conn *websocket.Conn) {
 		websocket.Message.Send(conn, "connection error: "+err.Error())
 		return
 	}
-	defer logger.Printf("closing connection to %s for %s", f.Serv, f.Nick)
-	defer client.Close()
-	defer client.Cmd("QUIT :%s", "client left.")
+	defer func() {
+		logger.Printf("closing connection to %s for %s", f.Serv, f.Nick)
+		websocket.Message.Send(conn, "connection closed.")
+		client.Cmd("QUIT :%s", "client left.")
+		client.Close()
+	}()
 	logger.Printf("joining channel %s", f.Chan)
 	client.Cmd("JOIN %s", f.Chan)
 	for line := range client.lines {
-		websocket.Message.Send(conn, formatIrcLine(parseIrcLine(line)))
+		// send {"system": message} or {"line": message}
+		websocket.JSON.Send(conn, line)
 	}
 }
 
@@ -170,7 +220,15 @@ const ircTemplate = `<!DOCTYPE html>
 		};
 
 		function display(msg) {
-			$("#lines").append($("<li/>").text(msg.data));
+			var event = JSON.parse(msg.data);
+			if (event.line) {
+				$("#lines").append($("<li/>").html(event.line));
+			}
+			if (event.system) {
+				// Only keep 50 last messages.
+				$("#system").append($("<li/>").html(event.system));
+				$("#system li").slice(0,-50).remove();
+			}
 		};
 
 		$("#form").submit(connect);
@@ -183,29 +241,69 @@ const ircTemplate = `<!DOCTYPE html>
 	});
 	</script>
 	<style type="text/css">
-		ul#lines {
-			list-style: none;
+		div#top, div#main {
+			position: fixed;
+			left: 0;
+			width: 100%;
 		}
-		ul#lines li {
+		div#top {
+			top: 0;
+			height: 20em;
+		}
+		div#main {
+			top: 20em;
+			bottom: 0;
+		}
+		ul {
+			border: solid 1px;
+			list-style: none;
+			overflow: auto;
+		}
+		form#form {
+			height: 8em;
+		}
+		ul#system, ul#lines {
+			position: absolute;
+			left: 2%;
+			right: 2%;
+			bottom: 1ex;
+		}
+		ul#system {
+			top: 8em;
+		}
+		ul#lines {
+			top: 0%;
+		}
+		ul li {
 			font-family: monospace, Courier;
+		}
+		span.from, span.to {
+			display: inline-block;
+			width: 16ex;
+			overflow: hidden;
 		}
 	</style>
 </head>
 <body>
-	<h1>IRC Chat</h1>
+	<div id="top">
+		<form id="form">
+			<h1>IRC Chat</h1>
+			Nick:
+			<input type="text" id="nick" size="32" value="guest">
+			Channel:
+			<input type="text" id="channel" size="32" value="#arch-fr-off"><br/>
+			Server:
+			<input type="text" id="server" size="32" value="chat.freenode.net:6667">
+			<input type="submit" value="Connect">
+		</form>
 
-	<form id="form">
-		Nick:
-		<input type="text" id="nick" size="32" value="guest">
-		Channel:
-		<input type="text" id="channel" size="32" value="#arch-fr-off"><br/>
-		Server:
-		<input type="text" id="server" size="32" value="chat.freenode.net:6667">
-		<input type="submit" value="Connect">
-	</form>
-
-	<ul id="lines">
-	</ul>
+		<ul id="system">
+		</ul>
+	</div>
+	<div id="main">
+		<ul id="lines">
+		</ul>
+	</div>
 </body>
 </html>
 `
