@@ -1,5 +1,5 @@
-// func Divmod(a, b uint64) (quo, rem uint64)
-TEXT ·Divmod(SB),7,$0
+// func DivmodU64(a, b uint64) (quo, rem uint64)
+TEXT ·DivmodU64(SB),7,$0
         MOVQ $0, DX
         MOVQ a+0(FP), AX
         DIVQ b+8(FP),
@@ -8,14 +8,18 @@ TEXT ·Divmod(SB),7,$0
         RET
 
 // func Mul(a, b uint64) (hi, lo uint64)
-TEXT ·Mul(SB),7,$0
+TEXT ·MulU64(SB),7,$0
         MOVQ a+0(FP), AX
         MULQ b+8(FP),
         MOVQ DX, hi+16(FP)
         MOVQ AX, lo+24(FP)
         RET
 
-// func MulS(a, b int64) (hi, lo int64)
-TEXT ·MulS(SB),7,$0
+// func MulI64(a, b int64) (hi, lo int64)
+TEXT ·MulI64(SB),7,$0
+        MOVQ a+0(FP), AX
+        IMULQ b+8(FP),
+        MOVQ DX, hi+16(FP)
+        MOVQ AX, lo+24(FP)
         RET
 
