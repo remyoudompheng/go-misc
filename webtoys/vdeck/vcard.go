@@ -57,6 +57,8 @@ type VCard struct {
 	// Section 3.7: security
 	Class string `vcard:"CLASS"`
 	Key   string `vcard:"KEY"`
+
+	Filename string // The path whence the vCard was loaded.
 }
 
 type NameField struct {
@@ -83,6 +85,8 @@ type TypedString struct {
 	Value string
 }
 
+func (t TypedString) String() string { return t.Value }
+
 type CSV []string
 
 var vcard_t = reflect.TypeOf(VCard{})   // The reflect.Type of VCard
@@ -104,6 +108,9 @@ func (vc VCard) String() string {
 	v := reflect.ValueOf(vc)
 	for i, imax := 0, v.NumField(); i < imax; i++ {
 		fname := vcard_t.Field(i).Tag.Get("vcard")
+		if fname == "" {
+			continue
+		}
 		field := v.Field(i)
 		if field.Type().Kind() == reflect.Slice && field.Type().Name() == "" {
 			for j, jmax := 0, field.Len(); j < jmax; j++ {

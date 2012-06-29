@@ -14,6 +14,7 @@ import (
 
 	_ "github.com/remyoudompheng/go-misc/webtoys/irc"
 	_ "github.com/remyoudompheng/go-misc/webtoys/pastehere"
+	_ "github.com/remyoudompheng/go-misc/webtoys/vdeck"
 	_ "github.com/remyoudompheng/go-misc/webtoys/webclock"
 )
 
@@ -22,6 +23,7 @@ var logger = log.New(os.Stderr, "webtoys ", log.LstdFlags)
 var toys = []string{
 	"irc",
 	"pastehere",
+	"vdeck",
 	"webclock",
 }
 
