@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -58,9 +59,10 @@ var (
 	words1 []string
 	words2 []string
 	words3 []string
+	initFlag sync.Once
 )
 
-func init() {
+func initWords() {
 	f, er := os.Open("/usr/share/dict/words")
 	if er != nil {
 		panic(er)
@@ -95,16 +97,19 @@ func init() {
 type Key [3]uint16
 
 func (k Key) String() string {
+	initFlag.Do(initWords)
 	a, b, c := k[0], k[1], k[2]
 	return words1[a] + "/" + words2[b] + "/" + words3[c]
 }
 
 func ChooseKey() Key {
+	initFlag.Do(initWords)
 	a, b, c := rand.Intn(len(words1)), rand.Intn(len(words2)), rand.Intn(len(words3))
 	return Key{uint16(a), uint16(b), uint16(c)}
 }
 
 func KeyFromStrings(s [3]string) Key {
+	initFlag.Do(initWords)
 	a := sort.SearchStrings(words1, s[0])
 	b := sort.SearchStrings(words2, s[1])
 	c := sort.SearchStrings(words3, s[2])
