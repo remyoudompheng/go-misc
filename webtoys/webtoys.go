@@ -59,6 +59,7 @@ func index(resp http.ResponseWriter, req *http.Request) {
 
 func init() {
 	http.HandleFunc("/", index)
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 }
 
 func main() {

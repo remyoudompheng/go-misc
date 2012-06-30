@@ -2,14 +2,15 @@ package vdeck
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"html/template"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 )
 
@@ -17,8 +18,6 @@ var logger = log.New(os.Stderr, "vdeck ", log.LstdFlags|log.Lshortfile)
 
 func init() {
 	flag.StringVar(&vcardDir, "vdeck", "", "vCard directory path")
-	http.HandleFunc("/vdeck/", index)
-	logger.Printf("registered vdeck at /vdeck/")
 }
 
 var vcardDir string // the base directory for vCards.
@@ -41,7 +40,7 @@ func loadDirectory(dirname string) []*VCard {
 			errors = append(errors, err)
 			return nil
 		}
-		vc.Filename = path
+		vc.Filename, _ = filepath.Rel(dirname, path)
 
 		cards = append(cards, vc)
 		return nil
@@ -49,57 +48,109 @@ func loadDirectory(dirname string) []*VCard {
 	return cards
 }
 
+func loadCard(name string) (*VCard, error) {
+	fname := filepath.Join(vcardDir, name)
+	if !strings.HasPrefix(fname, vcardDir) {
+		return nil, fmt.Errorf("wrong path %s", fname)
+	}
+	f, err := os.Open(fname)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return ParseVcard(f)
+}
+
 const indexTemplate = `
 <!DOCTYPE html>
 <html>
   <head>
     <title>vCard explorer</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <link type="text/css" rel="stylesheet" href="/static/jqgrid/ui.jqgrid.css"/>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+    <script type="text/javascript" src="/static/jqgrid/jquery.jqGrid.min.js"></script>
+    <script type="text/javascript" src="/static/vdeck.js"></script>
   </head>
   <body>
     <h1>Contacts directory</h1>
 
-    <table>
-    <thead>
-      <tr>
-	  <th>Full name</th>
-	  <th>Family name</th>
-	  <th>First name</th>
-	  <th>Phone number</th>
-	  <th>Email</th>
-	  <th>Filename</th>
-	</tr>
-    </thead>
-    <tbody>
-      {{ range $card := . }}
-	<tr>
-	  <td>{{ $card.FullName }}</td>
-	  <td>{{ $card.Name.FamilyName }}</td>
-	  <td>{{ $card.Name.GivenName }}</td>
-	  <td>{{ head $card.Tel }}</td>
-	  <td>{{ head $card.Email }}</td>
-	  <td>{{ $card.Filename }}</td>
-	</tr>
-	{{ end }}
-    </tbody>
-    </table>
+    <table id="contacts"></table>
   </body>
 </html>
 `
 
 var indexTpl = template.Must(template.
 	New("index").
-	Funcs(template.FuncMap{"head": tpl_head}).
 	Parse(indexTemplate))
 
-func tpl_head(slice interface{}) interface{} {
-	v := reflect.ValueOf(slice)
-	if v.Len() == 0 {
-		return ""
-	}
-	return v.Index(0).Interface()
+func init() {
+	http.HandleFunc("/vdeck/", index)
+	http.HandleFunc("/vdeck/all/", index_jqgrid)
+	http.HandleFunc("/vdeck/vcf/", raw_vcard)
+	logger.Printf("registered vdeck at /vdeck/")
 }
 
 func index(w http.ResponseWriter, req *http.Request) {
 	cards := loadDirectory(vcardDir)
 	indexTpl.Execute(w, cards)
+}
+
+func index_jqgrid(w http.ResponseWriter, req *http.Request) {
+	type record struct {
+		FullName   string `json:"fullname"`
+		FamilyName string `json:"family_name"`
+		FirstName  string `json:"first_name"`
+		Phone      string `json:"phone"`
+		Email      string `json:"email"`
+		Filename   string `json:"filename"`
+		Uid        string `json:"uid"`
+	}
+
+	type records struct {
+		Total   int      `json:"total"`
+		Page    int      `json:"page"`
+		Records int      `json:"records"`
+		Rows    []record `json:"rows"`
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	cards := loadDirectory(vcardDir)
+	data := records{
+		Total: 1, Page: 1,
+		Records: len(cards),
+		Rows:    make([]record, len(cards)),
+	}
+	for i, c := range cards {
+		data.Rows[i] = record{
+			FullName:   c.FullName,
+			FamilyName: c.Name.FamilyName,
+			FirstName:  c.Name.GivenName,
+			Filename:   c.Filename,
+			Uid:        c.Uid,
+		}
+		if len(c.Tel) > 0 {
+			data.Rows[i].Phone = c.Tel[0].Value
+		}
+		if len(c.Email) > 0 {
+			data.Rows[i].Email = c.Email[0].Value
+		}
+	}
+	json.NewEncoder(w).Encode(data)
+}
+
+func raw_vcard(w http.ResponseWriter, req *http.Request) {
+	cardpath, err := filepath.Rel("/vdeck/vcf/", req.URL.Path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if card, err := loadCard(cardpath); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	} else {
+		w.Header().Set("Content-Type", "text/x-vcard")
+		io.WriteString(w, card.String())
+	}
 }
