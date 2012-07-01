@@ -21,14 +21,26 @@ $(document).ready(function() {
 			{name: "first_name"},
 			{name: "phone", align: 'right'},
 			{name: "email"},
-			{name: "filename", formatter: linkvcf},
+			{name: "filename"},
 		],
 		jsonReader: {repeatitems: false},
+        onCellSelect: function(rowid, iCol, content, e) {
+            if (iCol == 5) {
+                $.get("/vdeck/vcf/" + content, function(data) {
+                    $("#vcf-dialog .raw-vcard").text(data);
+                    $("#vcf-dialog").dialog("open");
+                });
+            }
+        },
 	});
 
-        function linkvcf(value, options, row) {
-                var link = $("<a/>").attr("href", "/vdeck/vcf/" + row.filename);
-                link.text(value);
-                return link.wrap("<div>").parent().html();
-        };
+    $("#vcf-dialog").dialog({
+        autoOpen: false,
+        height:   400,
+        width:    400,
+        modal:    true,
+        buttons: {
+            "Close": function() { $(this).dialog("close"); },
+        },
+    });
 });

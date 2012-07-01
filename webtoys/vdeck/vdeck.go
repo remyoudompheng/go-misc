@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -67,8 +68,10 @@ const indexTemplate = `
   <head>
     <title>vCard explorer</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <link type="text/css" rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.21/themes/smoothness/jquery-ui.css">
     <link type="text/css" rel="stylesheet" href="/static/jqgrid/ui.jqgrid.css"/>
-    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/jquery-ui.min.js"></script>
     <script type="text/javascript" src="/static/jqgrid/jquery.jqGrid.min.js"></script>
     <script type="text/javascript" src="/static/vdeck.js"></script>
   </head>
@@ -76,6 +79,10 @@ const indexTemplate = `
     <h1>Contacts directory</h1>
 
     <table id="contacts"></table>
+
+    <div id="vcf-dialog" title="vCard contents">
+      <pre class="raw-vcard"></pre>
+    </div>
   </body>
 </html>
 `
@@ -92,11 +99,13 @@ func init() {
 }
 
 func index(w http.ResponseWriter, req *http.Request) {
+	logger.Printf("GET %s from %s", req.URL, req.RemoteAddr)
 	cards := loadDirectory(vcardDir)
 	indexTpl.Execute(w, cards)
 }
 
 func index_jqgrid(w http.ResponseWriter, req *http.Request) {
+	logger.Printf("GET %s from %s", req.URL, req.RemoteAddr)
 	type record struct {
 		FullName   string `json:"fullname"`
 		FamilyName string `json:"family_name"`
@@ -140,6 +149,7 @@ func index_jqgrid(w http.ResponseWriter, req *http.Request) {
 }
 
 func raw_vcard(w http.ResponseWriter, req *http.Request) {
+	logger.Printf("GET %s from %s", req.URL, req.RemoteAddr)
 	cardpath, err := filepath.Rel("/vdeck/vcf/", req.URL.Path)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
