@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
@@ -62,46 +61,17 @@ func loadCard(name string) (*VCard, error) {
 	return ParseVcard(f)
 }
 
-const indexTemplate = `
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>vCard explorer</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <link type="text/css" rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.21/themes/smoothness/jquery-ui.css">
-    <link type="text/css" rel="stylesheet" href="/static/jqgrid/ui.jqgrid.css"/>
-    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
-    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/jquery-ui.min.js"></script>
-    <script type="text/javascript" src="/static/jqgrid/jquery.jqGrid.min.js"></script>
-    <script type="text/javascript" src="/static/vdeck.js"></script>
-  </head>
-  <body>
-    <h1>Contacts directory</h1>
-
-    <table id="contacts"></table>
-
-    <div id="vcf-dialog" title="vCard contents">
-      <pre class="raw-vcard"></pre>
-    </div>
-  </body>
-</html>
-`
-
-var indexTpl = template.Must(template.
-	New("index").
-	Parse(indexTemplate))
-
 func init() {
 	http.HandleFunc("/vdeck/", index)
 	http.HandleFunc("/vdeck/all/", index_jqgrid)
 	http.HandleFunc("/vdeck/vcf/", raw_vcard)
+	http.HandleFunc("/vdeck/json/", json_vcard)
 	logger.Printf("registered vdeck at /vdeck/")
 }
 
 func index(w http.ResponseWriter, req *http.Request) {
 	logger.Printf("GET %s from %s", req.URL, req.RemoteAddr)
-	cards := loadDirectory(vcardDir)
-	indexTpl.Execute(w, cards)
+	http.ServeFile(w, req, "vdeck/vdeck.html")
 }
 
 func index_jqgrid(w http.ResponseWriter, req *http.Request) {
@@ -162,5 +132,22 @@ func raw_vcard(w http.ResponseWriter, req *http.Request) {
 	} else {
 		w.Header().Set("Content-Type", "text/x-vcard")
 		io.WriteString(w, card.String())
+	}
+}
+
+func json_vcard(w http.ResponseWriter, req *http.Request) {
+	logger.Printf("GET %s from %s", req.URL, req.RemoteAddr)
+	cardpath, err := filepath.Rel("/vdeck/json/", req.URL.Path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if card, err := loadCard(cardpath); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(card)
 	}
 }
