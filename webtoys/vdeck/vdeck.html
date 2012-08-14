@@ -3,18 +3,33 @@
   <head>
     <title>vCard explorer</title>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <link type="text/css" rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.21/themes/smoothness/jquery-ui.css">
-    <link type="text/css" rel="stylesheet" href="/static/jqgrid/ui.jqgrid.css"/>
+    <link type="text/css" rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.22/themes/ui-lightness/jquery-ui.css">
     <link type="text/css" rel="stylesheet" href="/static/common.css"/>
     <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
-    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/jquery-ui.min.js"></script>
-    <script type="text/javascript" src="/static/jqgrid/jquery.jqGrid.min.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.22/jquery-ui.min.js"></script>
     <script type="text/javascript" src="/static/vdeck.js"></script>
+    <style type="text/css">
+    table#contacts td { padding: .25ex; }
+    td.phone          { text-align: right; }
+    </style>
   </head>
   <body>
     <h1>Contacts directory</h1>
 
-    <table id="contacts"></table>
+    <table id="contacts" class="ui-widget ui-corner-all">
+      <thead class="ui-widget-header">
+        <tr>
+          <th>Full name</th>
+          <th>Family name</th>
+          <th>First name</th>
+          <th>Phone number</th>
+          <th>Email</th>
+          <th>Filename</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
 
     <div id="vcf-dialog" title="vCard contents">
       <pre class="raw-vcard"></pre>
@@ -26,19 +41,19 @@
         <li><a href="#vcf-addr">Address</a></li>
         <li><a href="#vcf-misc">Miscellaneous</a></li>
       </ul>
-      <div id="vcf-ident">
+      <div id="vcf-ident" class="ui-widget-content">
         <form>
           <fieldset>
-            <label for="fullname">Full name</label>
-            <input type="text" name="fullname" id="input-fullname" class="text ui-widget-content ui-corner-all" />
-            <label for="familyname">Family name</label>
-            <input type="text" name="familyname" id="input-familyname" class="text ui-widget-content ui-corner-all" />
-            <label for="firstname">First name</label>
-            <input type="text" name="firstname" id="input-firstname" class="text ui-widget-content ui-corner-all" />
-            <label for="nickname">Nickname</label>
-            <input type="text" name="nickname" id="input-nickname" class="text ui-widget-content ui-corner-all" />
-            <label for="birthday">Birthday</label>
-            <input type="text" name="birthday" id="input-birthday" class="text ui-widget-content ui-corner-all" />
+            <label for="input-fullname">Full name</label>
+            <input type="text" id="input-fullname" class="text" />
+            <label for="input-familyname">Family name</label>
+            <input type="text" id="input-familyname" class="text" />
+            <label for="input-firstname">First name</label>
+            <input type="text" id="input-firstname" class="text" />
+            <label for="input-nickname">Nickname</label>
+            <input type="text" id="input-nickname" class="text" />
+            <label for="input-birthday">Birthday</label>
+            <input type="text" id="input-birthday" class="text" />
           </fieldset>
         </form>
       </div>
@@ -70,19 +85,19 @@
           <tbody></tbody>
         </table>
       </div>
-      <div id="vcf-misc">
+      <div id="vcf-misc" class="ui-widget-content">
         <form>
           <fieldset>
-            <label for="categories">Categories</label>
-            <input type="text" name="categories" id="input-categories" class="text ui-widget-content ui-corner-all" />
-            <label for="uid">UID</label>
-            <input type="text" name="uid" id="input-uid" class="text ui-widget-content ui-corner-all" />
-            <label for="url">URL</label>
-            <input type="text" name="url" id="input-url" class="text ui-widget-content ui-corner-all" />
+            <label for="input-categories">Categories</label>
+            <input type="text" id="input-categories" class="text" />
+            <label for="input-uid">UID</label>
+            <input type="text" id="input-uid" class="text" />
+            <label for="input-url">URL</label>
+            <input type="text" id="input-url" class="text" />
           </fieldset>
         </form>
       </div>
     </div>
   </body>
 </html>
-`
+

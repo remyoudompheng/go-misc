@@ -86,22 +86,11 @@ func index_jqgrid(w http.ResponseWriter, req *http.Request) {
 		Uid        string `json:"uid"`
 	}
 
-	type records struct {
-		Total   int      `json:"total"`
-		Page    int      `json:"page"`
-		Records int      `json:"records"`
-		Rows    []record `json:"rows"`
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 	cards := loadDirectory(vcardDir)
-	data := records{
-		Total: 1, Page: 1,
-		Records: len(cards),
-		Rows:    make([]record, len(cards)),
-	}
+	data := make([]record, len(cards))
 	for i, c := range cards {
-		data.Rows[i] = record{
+		data[i] = record{
 			FullName:   c.FullName,
 			FamilyName: c.Name.FamilyName,
 			FirstName:  c.Name.GivenName,
@@ -109,10 +98,10 @@ func index_jqgrid(w http.ResponseWriter, req *http.Request) {
 			Uid:        c.Uid,
 		}
 		if len(c.Tel) > 0 {
-			data.Rows[i].Phone = c.Tel[0].Value
+			data[i].Phone = c.Tel[0].Value
 		}
 		if len(c.Email) > 0 {
-			data.Rows[i].Email = c.Email[0].Value
+			data[i].Email = c.Email[0].Value
 		}
 	}
 	json.NewEncoder(w).Encode(data)
