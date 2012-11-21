@@ -1,7 +1,7 @@
+// Package webclock implements a trivial websocket-based clock.
 package webclock
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,10 +15,10 @@ var logger = log.New(os.Stderr, "webclock ", log.LstdFlags|log.Lshortfile)
 
 var addr string
 
-func init() {
-	http.HandleFunc("/webclock", index)
-	http.Handle("/webclock/ws", websocket.Handler(handle))
-	logger.Printf("registered webclock at /webclock and /webclock/ws")
+func Register(mux *http.ServeMux) {
+	mux.HandleFunc("/webclock", index)
+	mux.Handle("/webclock/ws", websocket.Handler(handle))
+	log.Printf("registered webclock at /webclock and /webclock/ws")
 }
 
 const indexHtml = `
@@ -103,16 +103,5 @@ func handle(conn *websocket.Conn) {
 			}
 			ticks++
 		}
-	}
-}
-
-func main() {
-	flag.StringVar(&addr, "http", "localhost:8082", "listen here")
-	flag.Parse()
-
-	logger.Printf("serving on %s", addr)
-	err := http.ListenAndServe(addr, nil)
-	if err != nil {
-		logger.Printf("error in server: %s", err)
 	}
 }
