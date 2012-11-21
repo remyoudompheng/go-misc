@@ -10,20 +10,21 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/remyoudompheng/go-misc/pastehere"
 	"github.com/remyoudompheng/go-misc/webclock"
-	_ "github.com/remyoudompheng/go-misc/webtoys/irc"
+	"github.com/remyoudompheng/go-misc/webtoys/irc"
 	_ "github.com/remyoudompheng/go-misc/webtoys/vdeck"
 )
 
 func init() {
+	log.SetPrefix("webtoys ")
+	log.SetFlags(log.LstdFlags)
+
 	pastehere.Register(nil)
 	webclock.Register(nil)
+	irc.Register(nil)
 }
-
-var logger = log.New(os.Stderr, "webtoys ", log.LstdFlags)
 
 var toys = []string{
 	"irc",
@@ -53,7 +54,7 @@ const indexTplString = `<!DOCTYPE html>
 var indexTpl = template.Must(template.New("index").Parse(indexTplString))
 
 func index(resp http.ResponseWriter, req *http.Request) {
-	logger.Printf("GET %s from %s", req.URL, req.RemoteAddr)
+	log.Printf("GET %s from %s", req.URL, req.RemoteAddr)
 	if req.URL.Path != "/" {
 		resp.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(resp, "No such page: %s", req.URL.Path)
@@ -75,9 +76,9 @@ func main() {
 		flag.Usage()
 		return
 	}
-	logger.Printf("start listening at %s", address)
+	log.Printf("start listening at %s", address)
 	err := http.ListenAndServe(address, nil)
 	if err != nil {
-		logger.Fatal(err)
+		log.Fatal(err)
 	}
 }

@@ -2,6 +2,7 @@ package irc
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
@@ -9,18 +10,20 @@ import (
 	"net/textproto"
 	"os"
 	"strings"
+	"time"
 
 	"code.google.com/p/go.net/websocket"
-	"encoding/json"
-	"time"
 )
 
 var logger = log.New(os.Stderr, "irc ", log.LstdFlags|log.Lshortfile)
 
-func init() {
-	http.HandleFunc("/irc", home)
-	http.Handle("/irc/ws", websocket.Handler(connect))
-	logger.Printf("registered irc at /irc and /irc/ws")
+func Register(mux *http.ServeMux) {
+	if mux == nil {
+		mux = http.DefaultServeMux
+	}
+	mux.HandleFunc("/irc", home)
+	mux.Handle("/irc/ws", websocket.Handler(connect))
+	log.Printf("registered irc at /irc and /irc/ws")
 }
 
 const (
