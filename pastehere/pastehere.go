@@ -1,9 +1,9 @@
+// Package pastehere implements a pastebin-like application.
 package pastehere
 
 import (
 	"bufio"
 	"bytes"
-	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -56,9 +56,9 @@ func sendError(resp http.ResponseWriter, er error) {
 }
 
 var (
-	words1 []string
-	words2 []string
-	words3 []string
+	words1   []string
+	words2   []string
+	words3   []string
 	initFlag sync.Once
 )
 
@@ -102,12 +102,14 @@ func (k Key) String() string {
 	return words1[a] + "/" + words2[b] + "/" + words3[c]
 }
 
+// ChooseKey chooses a random storage key.
 func ChooseKey() Key {
 	initFlag.Do(initWords)
 	a, b, c := rand.Intn(len(words1)), rand.Intn(len(words2)), rand.Intn(len(words3))
 	return Key{uint16(a), uint16(b), uint16(c)}
 }
 
+// KeyFromStrings parses a triple of strings to a numerical key.
 func KeyFromStrings(s [3]string) Key {
 	initFlag.Do(initWords)
 	a := sort.SearchStrings(words1, s[0])
@@ -120,12 +122,14 @@ type Item []byte
 
 var allPastes = map[Key]Item{}
 
+// Home displays pastehere's homepage.
 func Home(resp http.ResponseWriter, req *http.Request) {
 	go logRequest(req)
 	buf := bytes.NewBufferString(homePage)
 	io.Copy(resp, buf)
 }
 
+// Paste receives a new paste from a client.
 func Paste(resp http.ResponseWriter, req *http.Request) {
 	go logRequest(req)
 	req.ParseForm()
@@ -154,6 +158,7 @@ func Paste(resp http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(resp, "http://%s/pastehere/view/%s", req.Host, key)
 }
 
+// View views a selected paste.
 func View(resp http.ResponseWriter, req *http.Request) {
 	go logRequest(req)
 	p := req.URL.Path
@@ -178,23 +183,12 @@ func View(resp http.ResponseWriter, req *http.Request) {
 	io.Copy(resp, buf)
 }
 
-func init() {
-	http.HandleFunc("/pastehere/", Home)
-	http.HandleFunc("/pastehere/paste", Paste)
-	http.HandleFunc("/pastehere/view/", View)
-}
-
-func main() {
-	var address string
-	flag.StringVar(&address, "http", ":8080", "listen address")
-	flag.Parse()
-	if address == "" {
-		flag.Usage()
-		return
+// Register registers HTTP handlers for pastehere.
+func Register(mux *http.ServeMux) {
+	if mux == nil {
+		mux = http.DefaultServeMux
 	}
-	logger.Printf("start listening at %s", address)
-	err := http.ListenAndServe(address, nil)
-	if err != nil {
-		logger.Fatal(err)
-	}
+	mux.HandleFunc("/pastehere/", Home)
+	mux.HandleFunc("/pastehere/paste", Paste)
+	mux.HandleFunc("/pastehere/view/", View)
 }

@@ -12,8 +12,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/remyoudompheng/go-misc/pastehere"
 	_ "github.com/remyoudompheng/go-misc/webtoys/irc"
-	_ "github.com/remyoudompheng/go-misc/webtoys/pastehere"
 	_ "github.com/remyoudompheng/go-misc/webtoys/vdeck"
 	_ "github.com/remyoudompheng/go-misc/webtoys/webclock"
 )
@@ -60,6 +60,7 @@ func index(resp http.ResponseWriter, req *http.Request) {
 func init() {
 	http.HandleFunc("/", index)
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+	pastehere.Register(nil)
 }
 
 func main() {
