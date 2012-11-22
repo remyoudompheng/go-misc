@@ -16,6 +16,9 @@ var logger = log.New(os.Stderr, "webclock ", log.LstdFlags|log.Lshortfile)
 var addr string
 
 func Register(mux *http.ServeMux) {
+	if mux == nil {
+		mux = http.DefaultServeMux
+	}
 	mux.HandleFunc("/webclock", index)
 	mux.Handle("/webclock/ws", websocket.Handler(handle))
 	log.Printf("registered webclock at /webclock and /webclock/ws")
