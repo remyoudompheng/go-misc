@@ -117,3 +117,20 @@ func (conn *Conn) ListBuffers() ([]Buffer, error) {
 	msg.HData(&buflist)
 	return buflist, nil
 }
+
+func (conn *Conn) BuffersData() (lines []LineData, err error) {
+	var s []byte
+	err = conn.send(cmdHdata, "buffer:gui_buffers(*)/lines/first_line(*)/data")
+	if err == nil {
+		s, err = conn.recv()
+	}
+	if err != nil {
+		return nil, err
+	}
+	msg := message(s)
+	id, typ := msg.Buffer(), msg.GetType()
+	//t.Logf("id=%s type=%v", id, typ)
+	_, _ = id, typ
+	msg.HData(&lines)
+	return lines, nil
+}

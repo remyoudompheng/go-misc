@@ -48,18 +48,7 @@ func TestExternal(t *testing.T) {
 	t.Logf("%+v", bufs)
 
 	// lines.
-	err = c.send(cmdHdata, "buffer:gui_buffers(*)/lines/first_line(*)/data")
-	if err == nil {
-		s, err = c.recv()
-	}
-	if err != nil {
-		t.Fatalf("buffer data: %s", err)
-	}
-	msg = message(s)
-	id, typ = msg.Buffer(), msg.GetType()
-	t.Logf("id=%s type=%v", id, typ)
-	var lines []LineData
-	msg.HData(&lines)
+	lines, err := c.BuffersData()
 	if len(lines) > 50 {
 		lines = lines[:50]
 	}
