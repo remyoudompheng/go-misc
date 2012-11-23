@@ -2,7 +2,6 @@ package weechat
 
 import (
 	"flag"
-	"reflect"
 	"testing"
 )
 
@@ -38,26 +37,15 @@ func TestExternal(t *testing.T) {
 	id, typ := msg.Buffer(), msg.GetType()
 	t.Logf("id=%s type=%v", id, typ)
 	var nicks []Nick
-	msg.Hdata(reflect.ValueOf(&nicks).Elem())
+	msg.HData(&nicks)
 	if len(nicks) > 50 {
 		nicks = nicks[:50]
 	}
 	t.Logf("%+v...", nicks)
 
 	// get buffer list.
-	err = c.send(cmdHdata, "buffer:gui_buffers(*)")
-	if err == nil {
-		s, err = c.recv()
-	}
-	if err != nil {
-		t.Fatalf("buffer list: %s", err)
-	}
-	msg = message(s)
-	id, typ = msg.Buffer(), msg.GetType()
-	t.Logf("id=%s type=%v", id, typ)
-	var buflist []Buffer
-	msg.Hdata(reflect.ValueOf(&buflist).Elem())
-	t.Logf("%+v", buflist)
+	bufs, err := c.ListBuffers()
+	t.Logf("%+v", bufs)
 
 	// lines.
 	err = c.send(cmdHdata, "buffer:gui_buffers(*)/lines/first_line(*)/data")
@@ -71,12 +59,12 @@ func TestExternal(t *testing.T) {
 	id, typ = msg.Buffer(), msg.GetType()
 	t.Logf("id=%s type=%v", id, typ)
 	var lines []LineData
-	msg.Hdata(reflect.ValueOf(&lines).Elem())
+	msg.HData(&lines)
 	if len(lines) > 50 {
-            lines = lines[:50]
+		lines = lines[:50]
 	}
-      for i := range lines {
-            lines[i].Clean()
-      }
+	for i := range lines {
+		lines[i].Clean()
+	}
 	t.Logf("%+v", lines)
 }
