@@ -5,11 +5,11 @@ package zipfs
 import (
 	"archive/zip"
 	"bytes"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path/filepath"
-	"time"
+	"strings"
 )
 
 func NewZipFS(z *zip.Reader) http.FileSystem {
@@ -38,6 +38,18 @@ func (fs *zipFS) Open(name string) (http.File, error) {
 			z := &zipFile{Info: entry.FileHeader, Data: bytes.NewReader(data)}
 			return z, nil
 		}
+		if entry.Mode().IsDir() && entry.Name == name[1:]+"/" {
+			// fake directory.
+			dir := &zipDir{Info: entry.FileHeader}
+			for _, subentry := range fs.zip.File {
+				if strings.HasPrefix(subentry.Name, entry.Name) && subentry != entry {
+					clone := *subentry
+					clone.Name = subentry.Name[len(entry.Name):]
+					dir.Files = append(dir.Files, &clone)
+				}
+			}
+			return dir, nil
+		}
 	}
 	return nil, os.ErrNotExist
 }
@@ -56,23 +68,29 @@ func (f *zipFile) Seek(off int64, whence int) (int64, error) { return f.Data.See
 var _ http.File = new(zipFile)
 
 type zipDir struct {
-	Dirname string
-	Files   []*zip.File
+	Info  zip.FileHeader
+	Files []*zip.File
 }
 
 func (f *zipDir) Close() error                              { return nil }
-func (f *zipDir) Stat() (os.FileInfo, error)                { return (*zipDirInfo)(f), nil }
-func (f *zipDir) Readdir(count int) ([]os.FileInfo, error)  { return nil, nil }
+func (f *zipDir) Stat() (os.FileInfo, error)                { return f.Info.FileInfo(), nil }
 func (f *zipDir) Read(s []byte) (int, error)                { return 0, os.ErrInvalid }
 func (f *zipDir) Seek(off int64, whence int) (int64, error) { return 0, os.ErrInvalid }
 
-type zipDirInfo zipDir
-
-func (d *zipDirInfo) Name() string       { return filepath.Base(d.Dirname) }
-func (d *zipDirInfo) Size() int64        { return 0 }
-func (d *zipDirInfo) Mode() os.FileMode  { return 0600 }
-func (d *zipDirInfo) ModTime() time.Time { return time.Unix(0, 0) }
-func (d *zipDirInfo) IsDir() bool        { return true }
-func (d *zipDirInfo) Sys() interface{}   { return (*zipDir)(d) }
-
-var _ os.FileInfo = new(zipDirInfo)
+func (f *zipDir) Readdir(count int) ([]os.FileInfo, error) {
+	if len(f.Files) == 0 {
+		return nil, io.EOF
+	}
+	if count > len(f.Files) {
+		count = len(f.Files)
+	}
+	infos := make([]os.FileInfo, count)
+	for i, f := range f.Files {
+		if i >= count {
+			break
+		}
+		infos[i] = f.FileInfo()
+	}
+	f.Files = f.Files[count:]
+	return infos, nil
+}
