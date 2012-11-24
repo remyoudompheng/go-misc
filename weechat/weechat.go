@@ -7,9 +7,11 @@ import (
 	"compress/zlib"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
+	"sync"
 )
 
 // Reference: http://www.weechat.org/files/doc/stable/weechat_relay_protocol.en.html
@@ -42,8 +44,9 @@ var cmdStrings = [cmdCount]string{
 }
 
 type Conn struct {
-	c net.Conn
-	r *bufio.Reader
+	c    net.Conn
+	r    *bufio.Reader
+	lock sync.Mutex
 }
 
 func Dial(addr string) (*Conn, error) {
@@ -51,7 +54,17 @@ func Dial(addr string) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Conn{c: conn, r: bufio.NewReader(conn)}, nil
+	wc := &Conn{c: conn, r: bufio.NewReader(conn)}
+	// say hello
+	err = wc.send(cmdInit, "compression=off")
+	return wc, err
+}
+
+func (conn *Conn) Close() error {
+	if conn != nil && conn.c != nil {
+		return conn.c.Close()
+	}
+	return nil
 }
 
 func (conn *Conn) send(cmd command, args ...string) error {
@@ -101,6 +114,8 @@ func (conn *Conn) recv() (s []byte, err error) {
 }
 
 func (conn *Conn) ListBuffers() ([]Buffer, error) {
+	conn.lock.Lock()
+	defer conn.lock.Unlock()
 	var s []byte
 	err := conn.send(cmdHdata, "buffer:gui_buffers(*)")
 	if err == nil {
@@ -118,7 +133,36 @@ func (conn *Conn) ListBuffers() ([]Buffer, error) {
 	return buflist, nil
 }
 
+func (conn *Conn) BufferData(ptr uint64, limit int, filter string) (lines []LineData, err error) {
+	conn.lock.Lock()
+	defer conn.lock.Unlock()
+	var s []byte
+	var path string
+	if limit == 0 {
+		path = fmt.Sprintf("buffer:0x%x/lines/first_line(*)/data", ptr)
+	} else if limit > 0 {
+		path = fmt.Sprintf("buffer:0x%x/lines/first_line(%d)/data", ptr, limit)
+	} else if limit < 0 {
+		path = fmt.Sprintf("buffer:0x%x/lines/last_line(%d)/data", ptr, limit)
+	}
+	err = conn.send(cmdHdata, path, filter)
+	if err == nil {
+		s, err = conn.recv()
+	}
+	if err != nil {
+		return nil, err
+	}
+	msg := message(s)
+	id, typ := msg.Buffer(), msg.GetType()
+	//t.Logf("id=%s type=%v", id, typ)
+	_, _ = id, typ
+	msg.HData(&lines)
+	return lines, nil
+}
+
 func (conn *Conn) BuffersData() (lines []LineData, err error) {
+	conn.lock.Lock()
+	defer conn.lock.Unlock()
 	var s []byte
 	err = conn.send(cmdHdata, "buffer:gui_buffers(*)/lines/first_line(*)/data")
 	if err == nil {

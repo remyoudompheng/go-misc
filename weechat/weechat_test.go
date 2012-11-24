@@ -17,11 +17,7 @@ func TestExternal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %s", err)
 	}
-
-	err = c.send(cmdInit)
-	if err != nil {
-		t.Errorf("init: %s", err)
-	}
+	defer c.Close()
 
 	// nicklist.
 	err = c.send(cmdNicklist)

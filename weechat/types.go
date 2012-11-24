@@ -18,6 +18,9 @@ type Nick struct {
 	Visible byte   "visible"
 	Name    string "name"
 	Prefix  string "prefix"
+
+	Buffer uintptr "ptr:buffer"
+	Self   uintptr "ptr:nicklist_item"
 }
 
 func (n Nick) String() string {
@@ -27,17 +30,33 @@ func (n Nick) String() string {
 type Buffer struct {
 	Name      string "name"
 	ShortName string "short_name"
+	FullName  string "full_name"
 	Title     string "title"
+
+	Self uintptr "ptr:buffer"
+	Prev uintptr "prev_buffer"
+	Next uintptr "next_buffer"
 }
 
 type Line struct {
+	Self uintptr "ptr:line"
 }
 
 type LineData struct {
-	Date       time.Time "date"
-	TimeString string    "str_time"
-	Prefix     string    "prefix"
-	Message    string    "message"
+	Date        time.Time "date"
+	DatePrinted time.Time "date_printed"
+	TimeString  string    "str_time"
+	Prefix      string    "prefix"
+	Message     string    "message"
+
+	RefreshNeeded byte "refresh_needed"
+	Displayed     byte "displayed"
+	Highlight     byte "highlight"
+
+	Buffer uintptr "ptr:buffer"
+	Lines  uintptr "ptr:lines"
+	Line   uintptr "ptr:line"
+	Self   uintptr "ptr:line_data"
 }
 
 func (l *LineData) Clean() {

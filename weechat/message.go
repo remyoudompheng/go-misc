@@ -101,28 +101,45 @@ func (m *message) hdata(v reflect.Value) (ppaths [][]uint64) {
 	v.Set(slice)
 	// map key names to field index.
 	keytofield := make([]int, len(keys))
-	t := v.Type().Elem()
+	ptrtofield := make([]int, len(hpath))
 	for i := range keys {
 		keytofield[i] = -1
 	}
+	for i := range hpath {
+		ptrtofield[i] = -1
+	}
+	t := v.Type().Elem()
 loopfields:
 	for f, fcount := 0, t.NumField(); f < fcount; f++ {
 		fld := t.Field(f)
-		for k, key := range keys {
-			if cmpbytestring(key[:len(key)-4], string(fld.Tag)) {
-				keytofield[k] = f
-				continue loopfields
+		if fld.Tag[:4] == "ptr:" {
+			for h, helem := range hpath {
+				if cmpbytestring(helem, string(fld.Tag[4:])) {
+					ptrtofield[h] = f
+					continue loopfields
+				}
+			}
+		} else {
+			for k, key := range keys {
+				if cmpbytestring(key[:len(key)-4], string(fld.Tag)) {
+					keytofield[k] = f
+					continue loopfields
+				}
 			}
 		}
 	}
 	for i := int32(0); i < length; i++ {
-		// len(hpath) pointers
-		// len(keys) objects with the given types.
-		ppath := make([]uint64, len(hpath))
-		for p := range hpath {
-			ppath[p] = m.Pointer()
-		}
 		obj := v.Index(int(i))
+		// len(hpath) pointers
+		for p, pname := range hpath {
+			ptr := m.Pointer()
+			if fld := ptrtofield[p]; fld >= 0 {
+				obj.Field(fld).SetUint(ptr)
+			} else {
+				debugf("path %s ignored in %s", pname, hpath)
+			}
+		}
+		// len(keys) objects with the given types.
 		for k, fld := range keytofield {
 			km := message(keys[k])
 			km = km[len(km)-3:]
@@ -135,9 +152,8 @@ loopfields:
 			}
 			m.decodeValue(keytype, dst)
 		}
-		ppaths = append(ppaths, ppath)
 	}
-	return ppaths
+	return nil
 }
 
 func cmpbytestring(a []byte, b string) bool {
