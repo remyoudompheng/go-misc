@@ -13,6 +13,7 @@ import (
 
 	"github.com/remyoudompheng/go-misc/pastehere"
 	"github.com/remyoudompheng/go-misc/webclock"
+	"github.com/remyoudompheng/go-misc/weblibs"
 	"github.com/remyoudompheng/go-misc/webtoys/irc"
 	_ "github.com/remyoudompheng/go-misc/webtoys/vdeck"
 )
@@ -21,9 +22,13 @@ func init() {
 	log.SetPrefix("webtoys ")
 	log.SetFlags(log.LstdFlags)
 
-	pastehere.Register(nil)
-	webclock.Register(nil)
-	irc.Register(nil)
+	pastehere.Register(nil) // at /pastehere/
+	webclock.Register(nil)  // at /webclock/
+	irc.Register(nil)       // at /irc/
+	err := weblibs.RegisterAll(nil)
+	if err != nil {
+		panic(err)
+	}
 }
 
 var toys = []string{
