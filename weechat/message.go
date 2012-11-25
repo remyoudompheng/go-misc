@@ -73,6 +73,9 @@ func (m *message) Time() time.Time {
 		panic(err)
 	}
 	*m = (*m)[length:]
+	if t == 0 {
+		return time.Time{}
+	}
 	return time.Unix(t, 0)
 }
 

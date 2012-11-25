@@ -45,11 +45,8 @@ func TestExternal(t *testing.T) {
 
 	// lines.
 	lines, err := c.BuffersData()
-	if len(lines) > 50 {
-		lines = lines[:50]
-	}
-	for i := range lines {
+	for i := 0; i < len(lines); i += 75 {
 		lines[i].Clean()
+		t.Logf("%+v", lines[i])
 	}
-	t.Logf("%+v", lines)
 }

@@ -2,12 +2,18 @@
 package web
 
 import (
+	"bytes"
 	"flag"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"sync"
+	"time"
+	"unicode"
 
 	ws "code.google.com/p/go.net/websocket"
 	"github.com/remyoudompheng/go-misc/weechat"
@@ -46,6 +52,7 @@ const homeTplStr = `
   <head>
     <title>Weechat</title>
     <link href="/libs/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/libs/bootstrap/css/bootstrap-responsive.min.css" rel="stylesheet">
     <script src="/libs/jquery.min.js"></script>
     <script src="/libs/bootstrap/js/bootstrap.min.js"></script>
     <script type="text/javascript">
@@ -54,16 +61,20 @@ const homeTplStr = `
             $.get("/weechat/buflines",
             {"buffer": $(this).attr("addr")},
             function(data) {
-                  $("ul#lines").html(data);
+                  $("#lines").html(data);
             });
       });
     });
     </script>
+    <style type="text/css">
+    body { padding-top: 60px; }
+    div#lines div.irc-date { text-size: 70%; }
+    </style>
   </head>
   <body style="padding-top: 60px;">
+    <div class="container-fluid">
     <div class="navbar navbar-inverse navbar-fixed-top">
       <div class="navbar-inner">
-      <div class="container-fluid">
       <div class="nav-collapse collapse">
         <ul class="nav">
           <li><a href="/">Home</a></li>
@@ -71,7 +82,7 @@ const homeTplStr = `
         </ul>
       </div>
       </div>
-      </div>
+    </div>
     </div>
 
     <div class="container-fluid">
@@ -87,13 +98,16 @@ const homeTplStr = `
       </div>
 
       <div class="span9">
-        <div class="span12"><!-- title -->
+        <div class="row-fluid">
+        <div class="span12 well well-large"><!-- title -->
           <h1>Weechat</h1>
         </div>
+        </div>
 
-        <div class="span12">
-          <!-- buffer lines -->
-          <ul id="lines"></ul>
+        <div class="row-fluid">
+        <div class="span12" id="lines">
+        <!-- buffer lines -->
+        </div>
         </div>
       </div>
     </div>
@@ -116,11 +130,82 @@ func handleHome(w http.ResponseWriter, req *http.Request) {
 
 const linesTplStr = `
 {{ range $line := $ }}
-<li>{{ $line.Date.Format "2006-01-02 15:04:05" }} {{ $line.Message }}</li>
-{{ end }}
+{{ if $line.Displayed }}
+<div class="row-fluid">
+  <div class="span10">
+  {{ if isAction $line }}<span class="label label-success">{{ htmlMessage $line }}</span>
+  {{ else }}{{ if isSystem $line }}<span class="label label-info">{{ $line.Prefix }} {{ $line.Message }}</span>
+  {{ else }}<span class="label">{{ $line.Prefix }}</span> {{ htmlMessage $line }}
+  {{ end }}{{ end }}
+  </div>
+  <div class="span2 irc-date">{{ humanTime $line.Date }}</div>
+</div>
+{{ end }}{{ end }}
 `
 
-var linesTpl = template.Must(template.New("lines").Parse(linesTplStr))
+var linesTpl = template.Must(template.New("lines").
+	Funcs(template.FuncMap{
+	"isAction": isAction, "isSystem": isSystem,
+	"humanTime": humanTime, "htmlMessage": htmlMessage}).
+	Parse(linesTplStr))
+
+func isAction(line weechat.LineData) bool { return line.Prefix == " *" }
+
+func isSystem(line weechat.LineData) bool {
+	return line.Prefix == "" ||
+		len(line.Prefix) <= 3 && strings.Contains(line.Prefix, "--")
+}
+
+func humanTime(t time.Time) string {
+	if t.IsZero() || t.Unix() == 0 {
+		return ""
+	}
+	now := time.Now()
+	switch laps := now.Sub(t); {
+	case laps <= 0:
+		return t.Format("2006-01-02 15:04:05")
+	case laps <= time.Minute:
+		return fmt.Sprintf("%d secs ago, %s", int(laps.Seconds()), t.Format("15:04:05"))
+	case laps <= time.Hour:
+		return fmt.Sprintf("%d min. ago, %s", int(laps.Seconds()/60), t.Format("15:04:05"))
+	}
+	return t.Format("Mon 2, 15:04")
+}
+
+func htmlMessage(line weechat.LineData) template.HTML {
+	if !strings.Contains(line.Message, "://") {
+		// fast path.
+		return template.HTML(template.HTMLEscapeString(line.Message))
+	}
+	buf := new(bytes.Buffer)
+	for msg := line.Message; len(msg) > 0; {
+		idx := strings.Index(msg, "://")
+		switch {
+		case idx >= 4 && msg[idx-4:idx] == "http":
+			buf.WriteString(msg[:idx-4])
+			msg = msg[idx-4:]
+		case idx >= 5 && msg[idx-5:idx] == "https":
+			buf.WriteString(msg[:idx-5])
+			msg = msg[idx-5:]
+		default:
+			buf.WriteString(msg)
+			msg = ""
+			continue
+		}
+		space := strings.IndexFunc(msg, unicode.IsSpace)
+		if space < 0 {
+			space = len(msg)
+		}
+		u := msg[:space]
+		msg = msg[space:]
+		if _, err := url.Parse(u); err == nil {
+			fmt.Fprintf(buf, `<a href="%s">%s</a>`, u, u)
+		} else {
+			buf.WriteString(u)
+		}
+	}
+	return template.HTML(buf.String())
+}
 
 func handleLines(w http.ResponseWriter, req *http.Request) {
 	initOnce.Do(initWeechat)
@@ -132,10 +217,12 @@ func handleLines(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	// Get latest lines in reverse order.
-	lines, err := weechatConn.BufferData(bufId, -256, "date,message")
+	lines, err := weechatConn.BufferData(bufId, -256, "date,prefix,message,displayed")
 	revlines := make([]weechat.LineData, 0, 256)
 	for i := range lines {
-		revlines = append(revlines, lines[len(lines)-1-i])
+		l := lines[len(lines)-1-i]
+		l.Clean()
+		revlines = append(revlines, l)
 	}
 	err = linesTpl.Execute(w, revlines)
 	if err != nil {
