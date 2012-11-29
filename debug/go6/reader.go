@@ -4,33 +4,48 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
+	"go/token"
 	"io"
+	"path/filepath"
 )
 
 type Reader struct {
-	rd   *bufio.Reader
-	syms [256]string
+	rd       *bufio.Reader
+	syms     [256]string
+	fset     *token.FileSet // Record per-file line information.
+	fnamebuf []string
+	fname    string
+	fstart   int
+	imports  map[int]string
 }
 
 func NewReader(r io.Reader) *Reader {
-	return &Reader{rd: bufio.NewReader(r)}
+	return &Reader{
+		rd:      bufio.NewReader(r),
+		fset:    token.NewFileSet(),
+		imports: make(map[int]string),
+	}
+}
+
+func (r *Reader) Files() (*token.FileSet, map[int]string) {
+	return r.fset, r.imports
 }
 
 func read2(r *bufio.Reader) (uint16, error) {
 	var buf [2]byte
-	_, err := r.Read(buf[:])
+	_, err := io.ReadFull(r, buf[:])
 	return binary.LittleEndian.Uint16(buf[:]), err
 }
 
 func read4(r *bufio.Reader) (uint32, error) {
 	var buf [4]byte
-	_, err := r.Read(buf[:])
+	_, err := io.ReadFull(r, buf[:])
 	return binary.LittleEndian.Uint32(buf[:]), err
 }
 
 func read8(r *bufio.Reader) (uint64, error) {
 	var buf [8]byte
-	_, err := r.Read(buf[:])
+	_, err := io.ReadFull(r, buf[:])
 	return binary.LittleEndian.Uint64(buf[:]), err
 }
 
@@ -78,6 +93,13 @@ func (r *Reader) ReadProg() (p Prog, err error) {
 		name := string(bname[:len(bname)-1])
 		// Register symbol.
 		r.syms[sym] = name
+		switch typ {
+		case D_EXTERN, D_STATIC:
+			// cross reference
+		case D_FILE:
+			// filename
+			r.fnamebuf = append(r.fnamebuf, name[1:])
+		}
 		_, _ = sig, typ
 		return Prog{Op: int(op), Name: name}, nil
 	}
@@ -94,15 +116,44 @@ func (r *Reader) ReadProg() (p Prog, err error) {
 	case err2 != nil:
 		return p, &errIO{When: "to address", Err: err}
 	}
-
-	return Prog{
+	p = Prog{
 		Op: int(op), Line: int(line),
-		From: from, To: to}, nil
+		From: from, To: to}
+	switch op {
+	case AHISTORY:
+		// register line information
+		fname := filepath.Join(r.fnamebuf...)
+		r.fnamebuf = nil
+		if p.To.Offset == -1 {
+			// imported library.
+			r.imports[int(line)] = fname
+			break
+		}
+		// HISTORY (line A)
+		// HISTORY (line B)
+		// means that fname spans lines[A:B]
+		if r.fname == "" {
+			r.fname, r.fstart = fname, int(line)
+		} else {
+			r.fset.AddFile(r.fname, r.fstart, int(line)-r.fstart-1)
+			r.fname, r.fstart = "", 0
+		}
+	default:
+		if p.Line != 0 {
+			pos := r.fset.Position(token.Pos(line))
+			pos.Line, pos.Column = pos.Column, 0
+			p.Pos = pos
+		}
+	}
+
+	return p, nil
 }
 
 func (r *Reader) ReadAddr() (Addr, error) {
 	a := Addr{Type: D_NONE, Index: D_NONE, Scale: 0}
 	tag, err := r.rd.ReadByte()
+	//s, err := r.rd.Peek(16)
+	//fmt.Printf("%v\n", s)
 	if tag&T_INDEX != 0 {
 		var index, scale byte
 		index, err = r.rd.ReadByte()
@@ -121,6 +172,9 @@ func (r *Reader) ReadAddr() (Addr, error) {
 	if tag&T_SYM != 0 {
 		a.Sym, err = r.ReadSym()
 	}
+	if err != nil {
+		return a, err
+	}
 	// Constants.
 	switch {
 	case tag&T_FCONST != 0:
@@ -128,7 +182,7 @@ func (r *Reader) ReadAddr() (Addr, error) {
 		a.FloatIEEE, err = read8(r.rd)
 	case tag&T_SCONST != 0:
 		a.Type = D_SCONST
-		_, err = r.rd.Read(a.StringVal[:])
+		_, err = io.ReadFull(r.rd, a.StringVal[:])
 	}
 	// Other
 	if tag&T_TYPE != 0 {

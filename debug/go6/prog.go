@@ -3,26 +3,30 @@ package go6
 import (
 	"bytes"
 	"fmt"
+	"go/token"
 )
 
 type Prog struct {
 	Op   int
 	Name string
 	Line int
+	Pos  token.Position // interpreted line number
 
 	From Addr
 	To   Addr
 }
 
 func (p Prog) String() string {
-	line := fmt.Sprintf("(:%d)", p.Line)
-	switch {
-	case p.Name != "":
+	if p.Name != "" {
 		return fmt.Sprintf("%-8s %q (:%d)", opnames[p.Op], p.Name, p.Line)
-	case p.To.Type == D_NONE:
-		return fmt.Sprintf("%6s %-8s %s", line, opnames[p.Op], p.From)
 	}
-	return fmt.Sprintf("%6s %-8s %s, %s", line, opnames[p.Op], p.From, p.To)
+	pos := "(" + p.Pos.String() + ")"
+	buf := new(bytes.Buffer)
+	fmt.Fprintf(buf, "%24s %-8s %s", pos, opnames[p.Op], p.From)
+	if p.To.Type != D_NONE {
+		fmt.Fprintf(buf, ",%s", p.To)
+	}
+	return buf.String()
 }
 
 type Addr struct {
