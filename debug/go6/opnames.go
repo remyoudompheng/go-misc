@@ -691,7 +691,6 @@ var opnames = [ALAST + 1]string{
 	AUSEFIELD:        "USEFIELD",
 	ALAST:            "LAST",
 }
-
 var regnames = [256]string{
 	D_AL:     "AL",
 	D_CL:     "CL",

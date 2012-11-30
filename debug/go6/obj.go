@@ -1,5 +1,5 @@
 // Created by cgo -godefs - DO NOT EDIT
-// cgo -godefs -- -I/opt/remy/go/include -I/opt/remy/go/src/cmd/6l obj.in.go
+// cgo -godefs -- -I/opt/remy/go/include -I/opt/remy/go/src/cmd/6l go6/obj.in.go
 
 package go6
 
