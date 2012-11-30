@@ -1,6 +1,6 @@
 // +build ignore
 
-package go6
+package go8
 
 // #include <u.h>
 // #include <8.out.h>

@@ -93,5 +93,4 @@ func (a Addr) String() string {
 		return fmt.Sprintf("%d(PC)", a.Offset)
 	}
 	panic("ignored type " + regnames[a.Type])
-	return fmt.Sprintf("%s+%d%s", a.Sym, a.Offset, idxsuf)
 }
