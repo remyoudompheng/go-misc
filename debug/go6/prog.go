@@ -17,6 +17,8 @@ type Prog struct {
 	To   Addr
 }
 
+func (p Prog) Opname() string { return opnames[p.Op] }
+
 func (p Prog) String() string {
 	if p.Name != "" {
 		return fmt.Sprintf("%-8s %q (:%d)", opnames[p.Op], p.Name, p.Line)

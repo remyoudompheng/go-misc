@@ -17,6 +17,8 @@ type Prog struct {
 	To   Addr
 }
 
+func (p Prog) Opname() string { return opnames[p.Op] }
+
 func (p Prog) String() string {
 	switch p.Op {
 	case ANAME:
@@ -73,6 +75,9 @@ func (a Addr) String() string {
 		return ""
 	case D_EXTERN:
 		return fmt.Sprintf("%s+%d(SB)%s", a.Sym, a.Offset, idxsuf)
+	case D_STATIC:
+		// TODO: symbol version.
+		return fmt.Sprintf("%s<?>+%d(SB)%s", a.Sym, a.Offset, idxsuf)
 	case D_AUTO:
 		return fmt.Sprintf("%s+%d(SP)%s", a.Sym, a.Offset, idxsuf)
 	case D_PARAM:
