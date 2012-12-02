@@ -4,15 +4,16 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
-	"go/token"
 	"io"
 	"path/filepath"
+
+	"github.com/remyoudompheng/go-misc/debug/goobj"
 )
 
 type Reader struct {
 	rd       *bufio.Reader
 	syms     [256]string
-	fset     *token.FileSet // Record per-file line information.
+	fset     goobj.FileSet // Record per-file line information.
 	fnamebuf []string
 	fname    string
 	fstart   int
@@ -22,13 +23,12 @@ type Reader struct {
 func NewReader(r io.Reader) *Reader {
 	return &Reader{
 		rd:      bufio.NewReader(r),
-		fset:    token.NewFileSet(),
 		imports: make(map[int]string),
 	}
 }
 
-func (r *Reader) Files() (*token.FileSet, map[int]string) {
-	return r.fset, r.imports
+func (r *Reader) Files() (*goobj.FileSet, map[int]string) {
+	return &r.fset, r.imports
 }
 
 func read2(r *bufio.Reader) (uint16, error) {
@@ -122,27 +122,25 @@ func (r *Reader) ReadProg() (p Prog, err error) {
 	switch op {
 	case AHISTORY:
 		// register line information
-		fname := filepath.Join(r.fnamebuf...)
-		r.fnamebuf = nil
 		if p.To.Offset == -1 {
 			// imported library.
-			r.imports[int(line)] = fname
+			r.imports[int(line)] = filepath.Join(r.fnamebuf...)
+			r.fnamebuf = nil
 			break
 		}
 		// HISTORY (line A)
 		// HISTORY (line B)
 		// means that fname spans lines[A:B]
-		if r.fname == "" {
-			r.fname, r.fstart = fname, int(line)
+		if r.fnamebuf != nil {
+			fname := filepath.Join(r.fnamebuf...)
+			r.fnamebuf = nil
+			r.fset.Enter(fname, int(line))
 		} else {
-			r.fset.AddFile(r.fname, r.fstart, int(line)-r.fstart-1)
-			r.fname, r.fstart = "", 0
+			r.fset.Exit(int(line))
 		}
 	default:
 		if p.Line != 0 {
-			pos := r.fset.Position(token.Pos(line))
-			pos.Line, pos.Column = pos.Column, 0
-			p.Pos = pos
+			p.Pos = r.fset.Position(int(line))
 		}
 	}
 

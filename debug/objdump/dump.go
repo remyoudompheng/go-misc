@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"go/token"
 	"io"
 	"log"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"github.com/remyoudompheng/go-misc/debug/go5"
 	"github.com/remyoudompheng/go-misc/debug/go6"
 	"github.com/remyoudompheng/go-misc/debug/go8"
+	"github.com/remyoudompheng/go-misc/debug/goobj"
 )
 
 var cwd, _ = os.Getwd()
@@ -43,7 +43,7 @@ func main() {
 		}
 	}
 
-	var fset *token.FileSet
+	var fset *goobj.FileSet
 	var imports map[int]string
 
 	switch {
@@ -59,14 +59,13 @@ func main() {
 
 	fmt.Println("--- imports ---")
 	for pos, imp := range imports {
-		pos := fset.Position(token.Pos(pos))
-		pos.Line, pos.Column = pos.Column, 0
+		pos := fset.Position(pos)
 		cleanPath(&pos.Filename)
 		fmt.Printf("%s: imports %s\n", pos, imp)
 	}
 }
 
-func dump5(r io.Reader) (fset *token.FileSet, imports map[int]string) {
+func dump5(r io.Reader) (fset *goobj.FileSet, imports map[int]string) {
 	in := go5.NewReader(r)
 
 	pcount := 0
@@ -97,7 +96,7 @@ func dump5(r io.Reader) (fset *token.FileSet, imports map[int]string) {
 	return in.Files()
 }
 
-func dump6(r io.Reader) (fset *token.FileSet, imports map[int]string) {
+func dump6(r io.Reader) (fset *goobj.FileSet, imports map[int]string) {
 	in := go6.NewReader(r)
 
 	pcount := 0
@@ -128,7 +127,7 @@ func dump6(r io.Reader) (fset *token.FileSet, imports map[int]string) {
 	return in.Files()
 }
 
-func dump8(r io.Reader) (fset *token.FileSet, imports map[int]string) {
+func dump8(r io.Reader) (fset *goobj.FileSet, imports map[int]string) {
 	in := go8.NewReader(r)
 
 	pcount := 0

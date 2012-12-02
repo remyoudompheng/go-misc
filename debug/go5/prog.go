@@ -3,8 +3,9 @@ package go5
 import (
 	"bytes"
 	"fmt"
-	"go/token"
 	"math"
+
+	"github.com/remyoudompheng/go-misc/debug/goobj"
 )
 
 const NREG = 16
@@ -14,7 +15,7 @@ type Prog struct {
 	Suffix Suffix
 	Name   string
 	Line   int
-	Pos    token.Position // interpreted line number
+	Pos    goobj.Position // interpreted line number
 
 	From Addr
 	Reg  int

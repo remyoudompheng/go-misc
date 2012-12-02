@@ -3,14 +3,15 @@ package go6
 import (
 	"bytes"
 	"fmt"
-	"go/token"
+
+	"github.com/remyoudompheng/go-misc/debug/goobj"
 )
 
 type Prog struct {
 	Op   int
 	Name string
 	Line int
-	Pos  token.Position // interpreted line number
+	Pos  goobj.Position // interpreted line number
 
 	From Addr
 	To   Addr

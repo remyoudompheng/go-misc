@@ -3,22 +3,26 @@ package go8
 import (
 	"bytes"
 	"fmt"
-	"go/token"
+
+	"github.com/remyoudompheng/go-misc/debug/goobj"
 )
 
 type Prog struct {
 	Op   int
 	Name string
 	Line int
-	Pos  token.Position // interpreted line number
+	Pos  goobj.Position // interpreted line number
 
 	From Addr
 	To   Addr
 }
 
 func (p Prog) String() string {
-	if p.Name != "" {
-		return fmt.Sprintf("%-8s %q (:%d)", opnames[p.Op], p.Name, p.Line)
+	switch p.Op {
+	case ANAME:
+		return fmt.Sprintf("(:%d) %-8s %q", p.Line, opnames[p.Op], p.Name)
+	case AHISTORY:
+		return fmt.Sprintf("(:%d) HISTORY %s", p.Line, p.To)
 	}
 	pos := "(" + p.Pos.String() + ")"
 	buf := new(bytes.Buffer)
