@@ -168,11 +168,14 @@ func (a Addr) String() string {
 		}
 		if a.Reg != NREG {
 			switch a.Type {
-			case D_NONE, D_REG, D_REGREG, D_REGREG2, D_FREG:
+			case D_NONE:
 				err := fmt.Errorf("no reg argument for type %s", regnames[a.Type])
 				panic(err)
+			case D_REG, D_FREG, D_REGREG, D_REGREG2:
+				// ok.
+			default:
+				fmt.Fprintf(buf, "(R%d)", a.Reg)
 			}
-			fmt.Fprintf(buf, "(R%d)", a.Reg)
 		}
 		return buf.String()
 	case D_EXTERN:
