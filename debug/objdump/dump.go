@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/remyoudompheng/go-misc/debug/ar"
 	"github.com/remyoudompheng/go-misc/debug/go5"
 	"github.com/remyoudompheng/go-misc/debug/go6"
 	"github.com/remyoudompheng/go-misc/debug/go8"
@@ -33,6 +34,23 @@ func main() {
 	defer f.Close()
 
 	rd := bufio.NewReader(f)
+
+	// Read first line.
+	line, err := rd.Peek(8)
+	if err != nil {
+		log.Fatal(err)
+	}
+	switch string(line) {
+	case "!<arch>\n":
+		dumparchive(rd)
+	case "go objec":
+		dumpobj(rd)
+	default:
+		log.Fatalf("unknown file type %s: bad magic %q", obj, line)
+	}
+}
+
+func dumpobj(rd *bufio.Reader) {
 	first := true
 	gochar := byte(0)
 	for {
@@ -55,6 +73,9 @@ func main() {
 				gochar = '6'
 			case "386":
 				gochar = '8'
+			default:
+				log.Printf("unrecognized object format %s", line)
+				return
 			}
 		}
 	}
@@ -66,8 +87,27 @@ func main() {
 		dump(Reader6{go6.NewReader(rd)})
 	case '8':
 		dump(Reader8{go8.NewReader(rd)})
-	default:
-		log.Fatalf("unknown file type %s", obj)
+	}
+}
+
+func dumparchive(rd *bufio.Reader) {
+	r := ar.NewReader(rd)
+	for {
+		hdr, err := r.Next()
+		switch err {
+		case nil:
+		case io.EOF:
+			return
+		default:
+			log.Fatal(err)
+		}
+		switch hdr.Name {
+		case "__.PKGDEF", "__.GOSYMDEF":
+			continue
+		default:
+			fmt.Printf("--- object %s ---\n", hdr.Name)
+			dumpobj(bufio.NewReader(r))
+		}
 	}
 }
 
