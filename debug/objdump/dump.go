@@ -59,20 +59,46 @@ func main() {
 		}
 	}
 
-	var fset *goobj.FileSet
-	var imports map[int]string
-
 	switch gochar {
 	case '5':
-		fset, imports = dump5(rd)
+		dump(Reader5{go5.NewReader(rd)})
 	case '6':
-		fset, imports = dump6(rd)
+		dump(Reader6{go6.NewReader(rd)})
 	case '8':
-		fset, imports = dump8(rd)
+		dump(Reader8{go8.NewReader(rd)})
 	default:
 		log.Fatalf("unknown file type %s", obj)
 	}
+}
 
+func dump(r ProgReader) {
+	pcount := 0
+	for {
+		p, pos, sym, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+		cleanPath(&pos.Filename)
+		switch p.Opname() {
+		case "NAME", "HISTORY":
+			// don't print.
+			//fmt.Printf("%s\n", p)
+		case "TEXT":
+			fmt.Println()
+			fmt.Printf("--- prog list %s ---\n", sym)
+			fallthrough
+		default:
+			fmt.Printf("%04d %s\n", pcount, p)
+			pcount++
+		case "END":
+			break
+		}
+	}
+
+	fset, imports := r.Files()
 	fmt.Println("--- imports ---")
 	for pos, imp := range imports {
 		pos := fset.Position(pos)
@@ -81,95 +107,32 @@ func main() {
 	}
 }
 
-func dump5(r io.Reader) (fset *goobj.FileSet, imports map[int]string) {
-	in := go5.NewReader(r)
-
-	pcount := 0
-	for {
-		p, err := in.ReadProg()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
-		cleanPath(&p.Pos.Filename)
-		switch p.Opname() {
-		case "NAME", "HISTORY":
-			// don't print.
-			//fmt.Printf("%s\n", p)
-		case "TEXT":
-			fmt.Println()
-			fmt.Printf("--- prog list %s ---\n", p.From.Sym)
-			fallthrough
-		default:
-			fmt.Printf("%04d %s\n", pcount, p)
-			pcount++
-		case "END":
-			break
-		}
-	}
-	return in.Files()
+type Prog interface {
+	Opname() string
 }
 
-func dump6(r io.Reader) (fset *goobj.FileSet, imports map[int]string) {
-	in := go6.NewReader(r)
-
-	pcount := 0
-	for {
-		p, err := in.ReadProg()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
-		cleanPath(&p.Pos.Filename)
-		switch p.Opname() {
-		case "NAME", "HISTORY":
-			// don't print.
-			//fmt.Printf("%s\n", p)
-		case "TEXT":
-			fmt.Println()
-			fmt.Printf("--- prog list %s ---\n", p.From.Sym)
-			fallthrough
-		default:
-			fmt.Printf("%04d %s\n", pcount, p)
-			pcount++
-		case "END":
-			break
-		}
-	}
-	return in.Files()
+type ProgReader interface {
+	Read() (Prog, *goobj.Position, string, error)
+	Files() (*goobj.FileSet, map[int]string)
 }
 
-func dump8(r io.Reader) (fset *goobj.FileSet, imports map[int]string) {
-	in := go8.NewReader(r)
+type Reader5 struct{ *go5.Reader }
 
-	pcount := 0
-	for {
-		p, err := in.ReadProg()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
-		cleanPath(&p.Pos.Filename)
-		switch p.Opname() {
-		case "NAME", "HISTORY":
-			// don't print.
-			// fmt.Printf("%s\n", p)
-		case "TEXT":
-			fmt.Println()
-			fmt.Printf("--- prog list %s ---\n", p.From.Sym)
-			fallthrough
-		default:
-			fmt.Printf("%04d %s\n", pcount, p)
-			pcount++
-		case "END":
-			break
-		}
-	}
-	return in.Files()
+func (r Reader5) Read() (Prog, *goobj.Position, string, error) {
+	prog, err := r.Reader.ReadProg()
+	return &prog, &prog.Pos, prog.From.Sym, err
+}
+
+type Reader6 struct{ *go6.Reader }
+
+func (r Reader6) Read() (Prog, *goobj.Position, string, error) {
+	prog, err := r.Reader.ReadProg()
+	return &prog, &prog.Pos, prog.From.Sym, err
+}
+
+type Reader8 struct{ *go8.Reader }
+
+func (r Reader8) Read() (Prog, *goobj.Position, string, error) {
+	prog, err := r.Reader.ReadProg()
+	return &prog, &prog.Pos, prog.From.Sym, err
 }

@@ -124,18 +124,19 @@ func (r *Reader) ReadProg() (p Prog, err error) {
 	switch op {
 	case AHISTORY:
 		// register line information
-		fname := filepath.Join(r.fnamebuf...)
-		r.fnamebuf = nil
 		if p.To.Offset == -1 {
 			// imported library.
-			r.imports[int(line)] = fname
+			r.imports[int(line)] = filepath.Join(r.fnamebuf...)
+			r.fnamebuf = nil
 			break
 		}
 		// HISTORY (line A)
 		// HISTORY (line B)
 		// means that fname spans lines[A:B]
-		if r.fname != "" {
-			r.fset.Enter(r.fname, int(line))
+		if r.fnamebuf != nil {
+			fname := filepath.Join(r.fnamebuf...)
+			r.fnamebuf = nil
+			r.fset.Enter(fname, int(line))
 		} else {
 			r.fset.Exit(int(line))
 		}
