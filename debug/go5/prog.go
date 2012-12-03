@@ -180,6 +180,11 @@ func (a Addr) String() string {
 			buf.WriteByte('$')
 		}
 		fmt.Fprintf(buf, "%s+%d(SB)", a.Sym, a.Offset)
+	case D_STATIC:
+		if a.Type == D_CONST {
+			buf.WriteByte('$')
+		}
+		fmt.Fprintf(buf, "%s<>+%d(SB)", a.Sym, a.Offset)
 	case D_AUTO:
 		if a.Type == D_CONST {
 			buf.WriteByte('$')
