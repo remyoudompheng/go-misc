@@ -11,6 +11,7 @@ import (
 const NREG = 16
 
 type Prog struct {
+	pc     int
 	Op     int
 	Suffix Suffix
 	Name   string
@@ -22,15 +23,18 @@ type Prog struct {
 	To   Addr
 }
 
-func (p Prog) Opname() string { return opnames[p.Op] }
+func (p Prog) PC() int                  { return p.pc }
+func (p Prog) Opname() string           { return opnames[p.Op] }
+func (p Prog) Position() goobj.Position { return p.Pos }
 
 func (p Prog) String() string {
-	if p.Name != "" {
-		return fmt.Sprintf("%-8s %q (:%d)", opnames[p.Op], p.Name, p.Line)
+	switch p.Op {
+	case ANAME:
+		return fmt.Sprintf("%-8s %q", opnames[p.Op], p.Name)
+	case AHISTORY:
+		return fmt.Sprintf("HISTORY %s", p.To)
 	}
-	pos := "(" + p.Pos.String() + ")"
 	buf := new(bytes.Buffer)
-	fmt.Fprintf(buf, "%24s ", pos)
 	n1, _ := buf.WriteString(opnames[p.Op])
 	n2, _ := buf.WriteString(p.Suffix.String())
 	if n1+n2 <= 8 {

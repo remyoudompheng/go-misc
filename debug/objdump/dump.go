@@ -112,15 +112,15 @@ func dumparchive(rd *bufio.Reader) {
 }
 
 func dump(r ProgReader) {
-	pcount := 0
 	for {
-		p, pos, sym, err := r.Read()
+		p, err := r.Read()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
 			log.Fatal(err)
 		}
+		pc, pos := p.PC(), p.Position()
 		cleanPath(&pos.Filename)
 		switch p.Opname() {
 		case "NAME", "HISTORY":
@@ -128,11 +128,19 @@ func dump(r ProgReader) {
 			//fmt.Printf("%s\n", p)
 		case "TEXT":
 			fmt.Println()
+			var sym string
+			switch prog := p.(type) {
+			case go5.Prog:
+				sym = prog.From.Sym
+			case go6.Prog:
+				sym = prog.From.Sym
+			case go8.Prog:
+				sym = prog.From.Sym
+			}
 			fmt.Printf("--- prog list %s ---\n", sym)
 			fallthrough
 		default:
-			fmt.Printf("%04d %s\n", pcount, p)
-			pcount++
+			fmt.Printf("%04d (%s) %s\n", pc, pos, p)
 		case "END":
 			break
 		}
@@ -148,31 +156,20 @@ func dump(r ProgReader) {
 }
 
 type Prog interface {
+	PC() int
 	Opname() string
+	Position() goobj.Position
 }
 
 type ProgReader interface {
-	Read() (Prog, *goobj.Position, string, error)
+	Read() (Prog, error)
 	Files() (*goobj.FileSet, map[int]string)
 }
 
 type Reader5 struct{ *go5.Reader }
-
-func (r Reader5) Read() (Prog, *goobj.Position, string, error) {
-	prog, err := r.Reader.ReadProg()
-	return &prog, &prog.Pos, prog.From.Sym, err
-}
-
 type Reader6 struct{ *go6.Reader }
-
-func (r Reader6) Read() (Prog, *goobj.Position, string, error) {
-	prog, err := r.Reader.ReadProg()
-	return &prog, &prog.Pos, prog.From.Sym, err
-}
-
 type Reader8 struct{ *go8.Reader }
 
-func (r Reader8) Read() (Prog, *goobj.Position, string, error) {
-	prog, err := r.Reader.ReadProg()
-	return &prog, &prog.Pos, prog.From.Sym, err
-}
+func (r Reader5) Read() (Prog, error) { return r.Reader.ReadProg() }
+func (r Reader6) Read() (Prog, error) { return r.Reader.ReadProg() }
+func (r Reader8) Read() (Prog, error) { return r.Reader.ReadProg() }

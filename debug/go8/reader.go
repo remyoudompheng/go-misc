@@ -13,6 +13,7 @@ import (
 type Reader struct {
 	rd       *bufio.Reader
 	syms     [256]string
+	pc       int
 	fset     goobj.FileSet // Record per-file line information.
 	fnamebuf []string
 	fname    string
@@ -116,7 +117,7 @@ func (r *Reader) ReadProg() (p Prog, err error) {
 	case err2 != nil:
 		return p, &errIO{When: "to address", Err: err}
 	}
-	p = Prog{
+	p = Prog{pc: r.pc,
 		Op: int(op), Line: int(line),
 		From: from, To: to}
 	switch op {
@@ -139,6 +140,7 @@ func (r *Reader) ReadProg() (p Prog, err error) {
 			r.fset.Exit(int(line))
 		}
 	default:
+		r.pc++
 		if p.Line != 0 {
 			p.Pos = r.fset.Position(int(line))
 		}

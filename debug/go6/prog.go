@@ -9,6 +9,7 @@ import (
 )
 
 type Prog struct {
+	pc   int
 	Op   int
 	Name string
 	Line int
@@ -18,15 +19,19 @@ type Prog struct {
 	To   Addr
 }
 
-func (p Prog) Opname() string { return opnames[p.Op] }
+func (p Prog) PC() int                  { return p.pc }
+func (p Prog) Opname() string           { return opnames[p.Op] }
+func (p Prog) Position() goobj.Position { return p.Pos }
 
 func (p Prog) String() string {
-	if p.Name != "" {
-		return fmt.Sprintf("%-8s %q (:%d)", opnames[p.Op], p.Name, p.Line)
+	switch p.Op {
+	case ANAME:
+		return fmt.Sprintf("%-8s %q", opnames[p.Op], p.Name)
+	case AHISTORY:
+		return fmt.Sprintf("HISTORY %s", p.To)
 	}
-	pos := "(" + p.Pos.String() + ")"
 	buf := new(bytes.Buffer)
-	fmt.Fprintf(buf, "%24s %-8s %s", pos, opnames[p.Op], p.From)
+	fmt.Fprintf(buf, "%-8s %s", opnames[p.Op], p.From)
 	if p.To.Type != D_NONE {
 		fmt.Fprintf(buf, ",%s", p.To)
 	}
