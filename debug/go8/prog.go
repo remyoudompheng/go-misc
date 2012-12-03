@@ -3,6 +3,7 @@ package go8
 import (
 	"bytes"
 	"fmt"
+	"math"
 
 	"github.com/remyoudompheng/go-misc/debug/goobj"
 )
@@ -88,6 +89,9 @@ func (a Addr) String() string {
 	case D_CONST2:
 		// ??
 		return fmt.Sprintf("$%d-%d%s", a.Offset, a.Offset2, idxsuf)
+	case D_FCONST:
+		f := math.Float64frombits(a.FloatIEEE)
+		return fmt.Sprintf("$%v", f)
 	case D_SCONST:
 		// chunk of string literal
 		s := a.StringVal[:]

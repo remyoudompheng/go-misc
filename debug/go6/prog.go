@@ -3,6 +3,7 @@ package go6
 import (
 	"bytes"
 	"fmt"
+	"math"
 
 	"github.com/remyoudompheng/go-misc/debug/goobj"
 )
@@ -71,6 +72,9 @@ func (a Addr) String() string {
 		return ""
 	case D_EXTERN:
 		return fmt.Sprintf("%s+%d(SB)%s", a.Sym, a.Offset, idxsuf)
+	case D_STATIC:
+		// TODO: symbol version.
+		return fmt.Sprintf("%s<?>+%d(SB)%s", a.Sym, a.Offset, idxsuf)
 	case D_AUTO:
 		return fmt.Sprintf("%s+%d(SP)%s", a.Sym, a.Offset, idxsuf)
 	case D_PARAM:
@@ -78,6 +82,9 @@ func (a Addr) String() string {
 	case D_CONST:
 		// integer immediate
 		return fmt.Sprintf("$%d%s", a.Offset, idxsuf)
+	case D_FCONST:
+		f := math.Float64frombits(a.FloatIEEE)
+		return fmt.Sprintf("$%v", f)
 	case D_SCONST:
 		// chunk of string literal
 		s := a.StringVal[:]
