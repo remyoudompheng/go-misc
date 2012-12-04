@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -16,17 +17,29 @@ import (
 	"github.com/remyoudompheng/go-misc/debug/goobj"
 )
 
+var (
+	fullpath bool
+	showpc   bool
+)
+
 var cwd, _ = os.Getwd()
 
 func cleanPath(s *string) {
-	rel, err := filepath.Rel(cwd, *s)
-	if err == nil && len(rel) < len(*s) {
-		*s = rel
+	if fullpath {
+		rel, err := filepath.Rel(cwd, *s)
+		if err == nil && len(rel) < len(*s) {
+			*s = rel
+		}
+	} else {
+		*s = filepath.Base(*s)
 	}
 }
 
 func main() {
-	obj := os.Args[1]
+	flag.BoolVar(&fullpath, "fullpath", false, "show full file names")
+	flag.BoolVar(&showpc, "pc", false, "show instruction numbering")
+	flag.Parse()
+	obj := flag.Arg(0)
 	f, err := os.Open(obj)
 	if err != nil {
 		log.Fatal(err)
@@ -140,7 +153,11 @@ func dump(r ProgReader) {
 			fmt.Printf("--- prog list %s ---\n", sym)
 			fallthrough
 		default:
-			fmt.Printf("%04d (%s) %s\n", pc, pos, p)
+			if showpc {
+				fmt.Printf("%04d (%s) %s\n", pc, pos, p)
+			} else {
+				fmt.Printf("(%s) %s\n", pos, p)
+			}
 		case "END":
 			break
 		}

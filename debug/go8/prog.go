@@ -105,7 +105,7 @@ func (a Addr) String() string {
 		ind.Index = D_NONE
 		return fmt.Sprintf("$%s", ind)
 	case D_BRANCH:
-		return fmt.Sprintf("%d(PC)", a.Offset)
+		return fmt.Sprintf("%d", a.Offset)
 	}
 	panic("ignored type " + regnames[a.Type])
 }

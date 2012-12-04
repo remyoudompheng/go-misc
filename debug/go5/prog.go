@@ -164,7 +164,7 @@ func (a Addr) String() string {
 		case D_FREG:
 			fmt.Fprintf(buf, "F%d", a.Reg)
 		case D_BRANCH:
-			return fmt.Sprintf("%s+%d(PC)", a.Sym, a.Offset)
+			return fmt.Sprintf("%s+%d", a.Sym, a.Offset)
 		default:
 			err := fmt.Errorf("impossible address class %s/%s",
 				regnames[a.Type], regnames[a.Class])
