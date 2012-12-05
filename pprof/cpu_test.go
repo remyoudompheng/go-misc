@@ -114,12 +114,12 @@ func TestCpuProfileReport(t *testing.T) {
 		}
 		reporter.Add(trace, int64(count))
 	}
-	entries := reporter.ReportByFunc()
+	entries := reporter.ReportByFunc(ColCPU)
 	buf := new(bytes.Buffer)
 	w := tabwriter.NewWriter(buf, 0, 8, 2, ' ', 0)
-	fmt.Fprintf(w, "Self\tCumul\tName\n")
+	fmt.Fprintf(w, "\nSelf\tCumul\tName\n")
 	for _, e := range entries {
-		fmt.Fprintf(w, "%.3g\t%.3g\t%s\n", e.Self, e.Cumul, e.Name)
+		fmt.Fprintf(w, "%.3g\t%.3g\t%s\n", e.Self[ColCPU], e.Cumul[ColCPU], e.Name)
 	}
 	w.Flush()
 	t.Log(buf.String())

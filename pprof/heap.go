@@ -151,3 +151,95 @@ func (p *HeapProfParser) ReadRecord() (h HeapRecord, err error) {
 	h.Trace = trace
 	return h, nil
 }
+
+// AdjustRecord modifies a heap profile record according to the
+// MemProfileRate to give an estimate of the real memory usage.
+// It also cleans up irrelevant parts of the stack trace like
+// calls to runtime.new.
+func (p *HeapProfParser) AdjustRecord(rec *HeapRecord, symtable func(uint64) string) {
+	// We only support heap profiling version 1. In this method,
+	// after each sample, a uniform integer n is chosen in [0, R)
+	// and the next sample is triggered after n allocated bytes.
+	//
+	// Large allocations of at least R bytes will be always sampled.
+	//
+	// The probability that a value of AllocBytes be a sampling
+	// threshold is about 2/R, so a small allocation of k bytes
+	// has roughly a 2k/R probability of being sampled. So we want
+	// to multiply by R/2k.
+	//
+	// For medium-sized allocations (k >= R/2), a block may be skipped
+	// with probability 1 - k/R, so we may want to multiply by R/k. But
+	// the evalutation is difficult, and the Perl pprof script does
+	// not do that.
+	objsize := int64(0)
+	if rec.LiveObj != 0 {
+		objsize = rec.LiveBytes / rec.LiveObj
+	}
+	if objsize == 0 && rec.AllocObj != 0 {
+		objsize = rec.AllocBytes / rec.AllocObj
+	}
+	ratio := 1.0
+	if objsize <= p.Freq/2 {
+		ratio = float64(p.Freq/2) / float64(objsize)
+	}
+	rec.AllocBytes = int64(ratio * float64(rec.AllocBytes))
+	rec.AllocObj = int64(ratio * float64(rec.AllocObj))
+	rec.LiveBytes = int64(ratio * float64(rec.LiveBytes))
+	rec.LiveObj = int64(ratio * float64(rec.LiveObj))
+
+	for i, addr := range rec.Trace {
+		sym := symtable(addr)
+		if !allocfuncs[sym] {
+			rec.Trace = rec.Trace[i:]
+			break
+		}
+	}
+}
+
+// allocfuncs lists functions from the Go runtime related
+// to memory allocation and that needn't be taken into
+// account when reading a heap profile.
+// The list is taken from misc/pprof.
+var allocfuncs = map[string]bool{
+	"catstring":                 true,
+	"copyin":                    true,
+	"gostring":                  true,
+	"gostringsize":              true,
+	"growslice1":                true,
+	"appendslice1":              true,
+	"hash_init":                 true,
+	"hash_subtable_new":         true,
+	"hash_conv":                 true,
+	"hash_grow":                 true,
+	"hash_insert_internal":      true,
+	"hash_insert":               true,
+	"mapassign":                 true,
+	"runtime.mapassign":         true,
+	"runtime.appendslice":       true,
+	"runtime.mapassign1":        true,
+	"makechan":                  true,
+	"makemap":                   true,
+	"mal":                       true,
+	"runtime.new":               true,
+	"makeslice1":                true,
+	"runtime.malloc":            true,
+	"unsafe.New":                true,
+	"runtime.mallocgc":          true,
+	"runtime.catstring":         true,
+	"runtime.growslice":         true,
+	"runtime.ifaceT2E":          true,
+	"runtime.ifaceT2I":          true,
+	"runtime.makechan":          true,
+	"runtime.makechan_c":        true,
+	"runtime.makemap":           true,
+	"runtime.makemap_c":         true,
+	"runtime.makeslice":         true,
+	"runtime.mal":               true,
+	"runtime.settype":           true,
+	"runtime.settype_flush":     true,
+	"runtime.slicebytetostring": true,
+	"runtime.sliceinttostring":  true,
+	"runtime.stringtoslicebyte": true,
+	"runtime.stringtosliceint":  true,
+}
