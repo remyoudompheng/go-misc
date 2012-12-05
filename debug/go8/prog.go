@@ -65,7 +65,7 @@ func (a Addr) String() string {
 			return "(" + regnames[a.Type-D_INDIR] + ")" + idxsuf
 		}
 	}
-	if D_AL <= a.Type && a.Type <= D_GS {
+	if D_AL <= a.Type && a.Type <= D_NONE {
 		if a.Offset != 0 {
 			return fmt.Sprintf("%d,%s%s", a.Offset, regnames[a.Type], idxsuf)
 		} else {
