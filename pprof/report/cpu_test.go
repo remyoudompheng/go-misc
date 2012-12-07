@@ -1,4 +1,4 @@
-package pprof
+package report
 
 import (
 	"bytes"
@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"text/tabwriter"
+
+      "github.com/remyoudompheng/go-misc/pprof/parser"
 )
 
 type symbol struct {
@@ -73,7 +75,7 @@ func TestCpuProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	p, err := NewCpuProfParser(f)
+	p, err := parser.NewCpuProfParser(f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +104,7 @@ func TestCpuProfileReport(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	p, err := NewCpuProfParser(f)
+	p, err := parser.NewCpuProfParser(f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +141,7 @@ func BenchmarkCpuProfile(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer f.Close()
-	p, err := NewCpuProfParser(f)
+	p, err := parser.NewCpuProfParser(f)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -150,7 +152,7 @@ func BenchmarkCpuProfile(b *testing.B) {
 			// rewind.
 			bsize += tell(f)
 			f.Seek(0, 0)
-			p, _ = NewCpuProfParser(f)
+			p, _ = parser.NewCpuProfParser(f)
 			continue
 		}
 		_ = count

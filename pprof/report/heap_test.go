@@ -1,4 +1,4 @@
-package pprof
+package report
 
 import (
 	"bytes"
@@ -7,6 +7,8 @@ import (
 	"os"
 	"testing"
 	"text/tabwriter"
+
+      "github.com/remyoudompheng/go-misc/pprof/parser"
 )
 
 func TestHeapProfile(t *testing.T) {
@@ -15,7 +17,7 @@ func TestHeapProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	p, err := NewHeapProfParser(f)
+	p, err := parser.NewHeapProfParser(f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +45,7 @@ func TestHeapProfileReport(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer f.Close()
-	p, err := NewHeapProfParser(f)
+	p, err := parser.NewHeapProfParser(f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +85,7 @@ func BenchmarkHeapProfile(b *testing.B) {
 		b.Fatal(err)
 	}
 	defer f.Close()
-	p, err := NewHeapProfParser(f)
+	p, err := parser.NewHeapProfParser(f)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -94,7 +96,7 @@ func BenchmarkHeapProfile(b *testing.B) {
 			// rewind.
 			bsize += tell(f)
 			f.Seek(0, 0)
-			p, _ = NewHeapProfParser(f)
+			p, _ = parser.NewHeapProfParser(f)
 			continue
 		}
 		_ = rec
