@@ -1,6 +1,7 @@
 package report
 
 import (
+	"debug/elf"
 	"fmt"
 	"sort"
 )
@@ -30,6 +31,49 @@ func (r *Reporter) getStats(key uint64) *Stats {
 	r.stats[key] = s
 	return s
 }
+
+func (r *Reporter) Total(col int) (t int64) {
+	for _, s := range r.stats {
+		t += s.Self[col]
+	}
+	return
+}
+
+func (r *Reporter) SetExecutable(filename string) error {
+	f, err := elf.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	symbols, err := f.Symbols()
+	if err != nil {
+		return err
+	}
+	sort.Sort(elfSymbolTable(symbols))
+	r.Resolver = func(addr uint64) string {
+		min, max := 0, len(symbols)
+		for max-min > 1 {
+			med := (min + max) / 2
+			a := symbols[med].Value
+			if a < addr {
+				min = med
+			} else {
+				max = med
+			}
+		}
+		if symbols[min].Value > addr {
+			return "N/A"
+		}
+		return symbols[min].Name
+	}
+	return nil
+}
+
+type elfSymbolTable []elf.Symbol
+
+func (s elfSymbolTable) Len() int           { return len(s) }
+func (s elfSymbolTable) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s elfSymbolTable) Less(i, j int) bool { return s[i].Value < s[j].Value }
 
 // Add registers data for a given stack trace. There may be at most
 // 4 count arguments, as needed in heap profiles.

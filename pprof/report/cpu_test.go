@@ -11,7 +11,7 @@ import (
 	"testing"
 	"text/tabwriter"
 
-      "github.com/remyoudompheng/go-misc/pprof/parser"
+	"github.com/remyoudompheng/go-misc/pprof/parser"
 )
 
 type symbol struct {

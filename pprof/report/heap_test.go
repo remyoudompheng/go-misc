@@ -8,7 +8,7 @@ import (
 	"testing"
 	"text/tabwriter"
 
-      "github.com/remyoudompheng/go-misc/pprof/parser"
+	"github.com/remyoudompheng/go-misc/pprof/parser"
 )
 
 func TestHeapProfile(t *testing.T) {
