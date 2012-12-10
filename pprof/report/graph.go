@@ -54,7 +54,7 @@ func (r *Reporter) GraphByFunc(col int) Graph {
 	g := make(Graph)
 	count := 1
 	for a, v := range r.stats {
-		name := r.Resolver(a)
+		name := r.Resolver.Resolve(a)
 		n, ok := g[name]
 		if !ok {
 			count++
@@ -67,7 +67,8 @@ func (r *Reporter) GraphByFunc(col int) Graph {
 			n.Callees = make(map[string]int64, len(v.Callees))
 		}
 		for b, w := range v.Callees {
-			n.Callees[b] += w[col]
+			bname := r.Resolver.Resolve(b)
+			n.Callees[bname] += w[col]
 		}
 		g[name] = n
 	}
@@ -79,6 +80,9 @@ type GraphReport struct {
 	Total int64
 	Unit  string
 	Graph Graph
+
+	NodeFrac float64
+	EdgeFrac float64
 }
 
 func (g *GraphReport) WriteTo(w io.Writer) error {
@@ -86,12 +90,39 @@ func (g *GraphReport) WriteTo(w io.Writer) error {
 	return err
 }
 
+func (g *GraphReport) Nodes() (ns []Node) {
+	min := int64(float64(g.Total) * g.NodeFrac)
+	println("min =", min)
+	for _, n := range g.Graph.Nodes() {
+		if n.Cumul >= min {
+			ns = append(ns, n)
+		}
+	}
+	return
+}
+
+func (g *GraphReport) Edges() (e []Edge) {
+	minN := int64(float64(g.Total) * g.NodeFrac)
+	minE := int64(float64(g.Total) * g.EdgeFrac)
+	for _, n := range g.Graph {
+		if n.Cumul < minN {
+			continue
+		}
+		for n2, c := range n.Callees {
+			if g.Graph[n2].Cumul >= minN && c >= minE {
+				e = append(e, Edge{Node1: n.Id, Node2: g.Graph[n2].Id, Count: c})
+			}
+		}
+	}
+	return
+}
+
 const graphvizTplText = `
 digraph "{{.Prog}}; {{.Total}} {{.Unit}}" {
     node [width=0.375,height=0.25];
     Legend [shape=box,fontsize=24,shape=plaintext,
             label="Total {{.Unit}}: {{.Total}}\l"];
-    {{ range $node := .Graph.Nodes }}
+    {{ range $node := $.Nodes }}
     N{{$node.Id}} [shape=box,
         fontsize={{fontsize $node.Self $.Total}},
         label="{{$node.Sym}}\n"+
@@ -100,9 +131,8 @@ digraph "{{.Prog}}; {{.Total}} {{.Unit}}" {
               "of {{$node.Cumul}} ({{percent $node.Cumul $.Total}})\r"];
               {{else}}""];{{end}}
     {{end}}
-    {{ range $edge := .Graph.Edges }}
-    N{{$edge.Node1}} -> N{{$edge.Node2}} [label={{$edge.Count}}];
-    {{ end }}
+    {{ range $edge := $.Edges }}
+    N{{$edge.Node1}} -> N{{$edge.Node2}} [label={{$edge.Count}}];{{ end }}
 }
 `
 
