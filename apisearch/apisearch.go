@@ -11,6 +11,7 @@ import (
 	"bufio"
 	"bytes"
 	"flag"
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/printer"
@@ -36,7 +37,7 @@ func main() {
 
 	pat, err := ParsePattern(pattern)
 	if err != nil {
-		log.Fatalf("cannot parse pattern", err)
+		log.Fatalf("cannot parse pattern: %s", err)
 	}
 	log.Printf("using pattern: %s", printNode(pat))
 
@@ -62,7 +63,7 @@ func main() {
 		pkg, name, kind, val := SplitApi(line)
 		if kind == "func" && Match(pat, val) {
 			// print matches to Stdout.
-			fmt.Printf("%s.%s: %s", pkg, name, val)
+			fmt.Printf("%s.%s: %s\n", pkg, name, val)
 		}
 	}
 	//err = scan.Err()
