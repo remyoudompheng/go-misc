@@ -85,9 +85,9 @@ func (r *Reader) ReadProg() (p Prog, err error) {
 		bname, err := r.rd.ReadString(0)
 		switch {
 		case err1 != nil:
-			return p, &errIO{When: "symbol type", Err: err}
+			return p, &errIO{When: "symbol type", Err: err1}
 		case err2 != nil:
-			return p, &errIO{When: "symbol id", Err: err}
+			return p, &errIO{When: "symbol id", Err: err2}
 		case err != nil:
 			return p, &errIO{When: "symbol value", Err: err}
 		}

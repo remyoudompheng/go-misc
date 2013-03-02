@@ -11,6 +11,8 @@ import (
 )
 
 type Reader struct {
+	Version goobj.Version
+
 	rd       *bufio.Reader
 	syms     [256]string
 	pc       int
@@ -71,6 +73,9 @@ func (r *Reader) ReadProg() (p Prog, err error) {
 	if op <= AXXX || op >= ALAST {
 		return p, errOpOutOfRange(op)
 	}
+	if r.Version == goobj.GO1 && op > ASQRTD {
+		op += 2 // Go 1.1 inserted ABSF and ABSD here.
+	}
 	switch op {
 	case ANAME, ASIGNAME:
 		sig := uint32(0)
@@ -115,9 +120,9 @@ func (r *Reader) ReadProg() (p Prog, err error) {
 	case err != nil:
 		return p, &errIO{When: "line number", Err: err}
 	case err1 != nil:
-		return p, &errIO{When: "from address", Err: err}
+		return p, &errIO{When: "from address", Err: err1}
 	case err2 != nil:
-		return p, &errIO{When: "to address", Err: err}
+		return p, &errIO{When: "to address", Err: err2}
 	}
 	p = Prog{pc: r.pc,
 		Op: int(op), Suffix: Suffix(suffix), Line: int(line),

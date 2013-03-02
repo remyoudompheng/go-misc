@@ -4,6 +4,13 @@ import (
 	"fmt"
 )
 
+type Version int
+
+const (
+	GO1 Version = iota
+	GO1_1
+)
+
 // A FileSet holds line information for a set of files.
 // Unlike FileSet from go/token, a file may include other
 // files and span a discontinuous set of line numbers.

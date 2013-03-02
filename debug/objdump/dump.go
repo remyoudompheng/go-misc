@@ -66,6 +66,7 @@ func main() {
 func dumpobj(rd *bufio.Reader) {
 	first := true
 	gochar := byte(0)
+	ver := goobj.GO1_1
 	for {
 		line, err := rd.ReadSlice('\n')
 		if err != nil && err != bufio.ErrBufferFull {
@@ -76,7 +77,7 @@ func dumpobj(rd *bufio.Reader) {
 		}
 		if first {
 			first = false
-			// go object GOOS GOARCH
+			// go object GOOS GOARCH VERSION
 			words := strings.Fields(string(line))
 			arch := words[3]
 			switch arch {
@@ -90,12 +91,19 @@ func dumpobj(rd *bufio.Reader) {
 				log.Printf("unrecognized object format %q", line)
 				return
 			}
+			version := words[4]
+			switch version {
+			case "go1", "go1.0.1", "go1.0.2", "go1.0.3":
+				ver = goobj.GO1
+			}
 		}
 	}
 
 	switch gochar {
 	case '5':
-		dump(Reader5{go5.NewReader(rd)})
+		r5 := go5.NewReader(rd)
+		r5.Version = ver
+		dump(Reader5{r5})
 	case '6':
 		dump(Reader6{go6.NewReader(rd)})
 	case '8':
@@ -115,7 +123,7 @@ func dumparchive(rd *bufio.Reader) {
 			log.Fatal(err)
 		}
 		switch hdr.Name {
-		case "__.PKGDEF", "__.GOSYMDEF":
+		case "__.PKGDEF", "__.SYMDEF", "__.GOSYMDEF":
 			continue
 		default:
 			fmt.Printf("--- object %s ---\n", hdr.Name)
