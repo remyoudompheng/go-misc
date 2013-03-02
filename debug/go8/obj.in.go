@@ -509,6 +509,8 @@ const (
 	AXORPD       = C.AXORPD
 	AXORPS       = C.AXORPS
 	AUSEFIELD    = C.AUSEFIELD
+	ALOCALS      = C.ALOCALS
+	ATYPE        = C.ATYPE
 	ALAST        = C.ALAST
 	D_AL         = C.D_AL
 	D_CL         = C.D_CL

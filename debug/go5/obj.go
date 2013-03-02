@@ -114,7 +114,9 @@ const (
 	AMULAWT             = 0x6b
 	AMULAWB             = 0x6c
 	AUSEFIELD           = 0x6d
-	ALAST               = 0x6e
+	ALOCALS             = 0x6e
+	ATYPE               = 0x6f
+	ALAST               = 0x70
 	C_SCOND      Suffix = 0xf
 	C_SBIT       Suffix = 0x10
 	C_PBIT       Suffix = 0x20

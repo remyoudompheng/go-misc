@@ -689,6 +689,8 @@ var opnames = [ALAST + 1]string{
 	AAESKEYGENASSIST: "AESKEYGENASSIST",
 	APSHUFD:          "PSHUFD",
 	AUSEFIELD:        "USEFIELD",
+	ALOCALS:          "LOCALS",
+	ATYPE:            "TYPE",
 	ALAST:            "LAST",
 }
 var regnames = [256]string{

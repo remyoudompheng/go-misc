@@ -117,6 +117,8 @@ const (
 	AMULAWT             = C.AMULAWT
 	AMULAWB             = C.AMULAWB
 	AUSEFIELD           = C.AUSEFIELD
+	ALOCALS             = C.ALOCALS
+	ATYPE               = C.ATYPE
 	ALAST               = C.ALAST
 	C_SCOND      Suffix = C.C_SCOND
 	C_SBIT       Suffix = C.C_SBIT

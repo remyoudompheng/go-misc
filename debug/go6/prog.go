@@ -29,6 +29,12 @@ func (p Prog) String() string {
 		return fmt.Sprintf("%-8s %q", opnames[p.Op], p.Name)
 	case AHISTORY:
 		return fmt.Sprintf("HISTORY %s", p.To)
+	case AGLOBL, ADATA:
+		return fmt.Sprintf("%-8s %s,$%d,%s", opnames[p.Op],
+			p.From.Sym, p.From.Scale, p.To)
+	case ATEXT:
+		return fmt.Sprintf("%-8s %s,$%d,0x%x", opnames[p.Op],
+			p.From.Sym, p.From.Scale, p.To.Offset)
 	}
 	buf := new(bytes.Buffer)
 	fmt.Fprintf(buf, "%-8s %s", opnames[p.Op], p.From)

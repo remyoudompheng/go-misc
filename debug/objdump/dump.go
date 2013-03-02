@@ -87,7 +87,7 @@ func dumpobj(rd *bufio.Reader) {
 			case "386":
 				gochar = '8'
 			default:
-				log.Printf("unrecognized object format %s", line)
+				log.Printf("unrecognized object format %q", line)
 				return
 			}
 		}

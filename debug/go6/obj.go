@@ -690,7 +690,9 @@ const (
 	AAESKEYGENASSIST = 0x2ab
 	APSHUFD          = 0x2ac
 	AUSEFIELD        = 0x2ad
-	ALAST            = 0x2ae
+	ALOCALS          = 0x2ae
+	ATYPE            = 0x2af
+	ALAST            = 0x2b0
 	D_AL             = 0x0
 	D_CL             = 0x1
 	D_DL             = 0x2

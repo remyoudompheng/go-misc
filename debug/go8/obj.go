@@ -506,7 +506,9 @@ const (
 	AXORPD       = 0x1f3
 	AXORPS       = 0x1f4
 	AUSEFIELD    = 0x1f5
-	ALAST        = 0x1f6
+	ALOCALS      = 0x1f6
+	ATYPE        = 0x1f7
+	ALAST        = 0x1f8
 	D_AL         = 0x0
 	D_CL         = 0x1
 	D_DL         = 0x2

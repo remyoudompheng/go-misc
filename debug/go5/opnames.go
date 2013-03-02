@@ -113,6 +113,8 @@ var opnames = [ALAST + 1]string{
 	AMULAWT:   "MULAWT",
 	AMULAWB:   "MULAWB",
 	AUSEFIELD: "USEFIELD",
+	ALOCALS:   "LOCALS",
+	ATYPE:     "TYPE",
 	ALAST:     "LAST",
 }
 var regnames = [256]string{
