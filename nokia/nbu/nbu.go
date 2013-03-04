@@ -36,6 +36,22 @@ type FileInfo struct {
 	Name       string
 	Firmware   string
 	Language   string
+
+	Sections []Section
+}
+
+type Section struct {
+	Type int
+	GUID [2]uint64
+
+	Offset int64
+	Length int64
+
+	// For memos, calendar
+	Items int64
+
+	// For messages
+	Folders map[int]int64 // idx => offset
 }
 
 // Read file metadata and TOC.
@@ -48,7 +64,8 @@ func (r *Reader) Info() (info FileInfo, err error) {
 	}
 	off := int64(binary.LittleEndian.Uint64(buf[:]))
 	// Read metadata.
-	sec := io.NewSectionReader(r.File, off, r.Size-off)
+	debugf("TOC offset: %x", off)
+	sec := io.NewSectionReader(r.File, off+0x14, r.Size-off-0x14)
 	info.BackupTime, err = readTime(sec)
 	for _, s := range []*string{&info.IMEI, &info.Model, &info.Name, &info.Firmware, &info.Language} {
 		if err == nil {
@@ -63,7 +80,55 @@ func (r *Reader) Info() (info FileInfo, err error) {
 		return
 	}
 	parts := binary.LittleEndian.Uint32(buf[:4])
-	for p := 0; p < parts; p++ {
+	for p := 0; p < int(parts); p++ {
+		var guid [2]uint64
+		err := binary.Read(sec, binary.BigEndian, &guid)
+		if err != nil {
+			return info, err
+		}
+		off, err := read64(sec)
+		if err != nil {
+			return info, err
+		}
+		length, err := read64(sec)
+		if err != nil {
+			return info, err
+		}
+		typ := SecERROR
+		for i, g := range secUUID {
+			if guid == g {
+				typ = i
+			}
+		}
+		debugf("section %x (%s) at offset %x+%x",
+			guid, secNames[typ], off, length)
+		section := Section{
+			Type:   typ,
+			GUID:   guid,
+			Offset: int64(off),
+			Length: int64(length),
+		}
+		switch typ {
+		case SecGroups,
+			SecMessages,
+			SecMMS,
+			SecBookmarks:
+			nItems, _ := read32(sec) // files
+			section.Items = int64(nItems)
+			nFolder, _ := read32(sec) // folders
+			section.Folders = make(map[int]int64, nFolder)
+			for i := 0; i < int(nFolder); i++ {
+				idx, _ := read32(sec) // idx
+				off, _ := read64(sec) // off
+				debugf("folder %d at %x", idx, off)
+				section.Folders[int(idx)] = int64(off)
+			}
+		case SecCalendar, SecMemo:
+			nbMemos, _ := read64(sec)
+			debugf("%d memos", nbMemos)
+			section.Items = int64(nbMemos)
+		}
+		info.Sections = append(info.Sections, section)
 	}
 	return
 }
@@ -77,6 +142,7 @@ const (
 	SecMessages
 	SecMMS
 	SecBookmarks
+	SecERROR
 )
 
 var secUUID = [...][2]uint64{
@@ -86,6 +152,41 @@ var secUUID = [...][2]uint64{
 	SecMessages:  {0x617aefd1aabea149, 0x9d9d155abb4ceb8e},
 	SecMMS:       {0x471dd465efe33240, 0x8c7764caa383aa33},
 	SecBookmarks: {0x7f77905631f95749, 0x8d96ee445dbebc5a},
+}
+
+var secNames = [...]string{
+	SecFS:        "Internal files",
+	SecGroups:    "Groups",
+	SecCalendar:  "Calendar",
+	SecMemo:      "Memos",
+	SecMessages:  "Messages",
+	SecMMS:       "MMS",
+	SecBookmarks: "Bookmarks",
+	SecERROR:     "ERROR",
+}
+
+func parseMessageFolder(r io.Reader) (title string, messages []string, err error) {
+	_, err = read32(r) // folder id.
+	title, err = readString(r)
+	if err != nil {
+		return
+	}
+	nMsg, err := read32(r)
+	messages = make([]string, 0, nMsg)
+	for i := 0; i < int(nMsg); i++ {
+		read32(r)
+		read32(r)
+		msg, err := readLongString(r)
+		messages = append(messages, msg)
+		if err == io.EOF {
+			if i+1 != int(nMsg) {
+				err = io.ErrUnexpectedEOF
+			} else {
+				err = nil
+			}
+		}
+	}
+	return
 }
 
 // Utility functions.
@@ -126,4 +227,27 @@ func readString(r io.Reader) (string, error) {
 	s := make([]uint16, length)
 	err = binary.Read(r, binary.LittleEndian, s)
 	return string(utf16.Decode(s)), err
+}
+
+func readLongString(r io.Reader) (string, error) {
+	// Little endian 32 bit byte length + UTF-16LE string.
+	var length uint32
+	err := binary.Read(r, binary.LittleEndian, &length)
+	if err != nil {
+		return "", err
+	}
+	s := make([]uint16, length/2)
+	err = binary.Read(r, binary.LittleEndian, s)
+	return string(utf16.Decode(s)), err
+}
+
+func read32(r io.Reader) (uint32, error) {
+	var buf [4]byte
+	_, err := io.ReadFull(r, buf[:])
+	return binary.LittleEndian.Uint32(buf[:]), err
+}
+func read64(r io.Reader) (uint64, error) {
+	var buf [8]byte
+	_, err := io.ReadFull(r, buf[:])
+	return binary.LittleEndian.Uint64(buf[:]), err
 }

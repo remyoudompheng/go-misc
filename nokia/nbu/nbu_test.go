@@ -1,6 +1,8 @@
 package nbu
 
 import (
+	"flag"
+	"io"
 	"strings"
 	"testing"
 )
@@ -25,5 +27,42 @@ func TestReadString(t *testing.T) {
 	}
 	if s != "C3-00" {
 		t.Errorf("got %q, expected %q", s, "C3-00")
+	}
+}
+
+var path = flag.String("input", "", "input file for testing")
+
+func TestFile(t *testing.T) {
+	if *path == "" {
+		t.Logf("skipping since no input file specified")
+		return
+	}
+	r, err := OpenFile(*path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := r.Info()
+	if err != nil {
+		t.Error(err)
+	}
+	t.Logf("%+v", info)
+
+	// Test messages.
+	for _, sec := range info.Sections {
+		if sec.Type == SecMessages {
+			for id, off := range sec.Folders {
+				r := io.NewSectionReader(r.File, off, sec.Offset+sec.Length-off)
+				title, msgs, err := parseMessageFolder(r)
+				if err != nil {
+					t.Error(err)
+				}
+				t.Logf("Folder %d %q", id, title)
+				t.Logf("%d messages", len(msgs))
+				if len(msgs) > 0 {
+					t.Logf("First message: %s", msgs[0])
+					t.Logf("Last message: %s", msgs[len(msgs)-1])
+				}
+			}
+		}
 	}
 }
