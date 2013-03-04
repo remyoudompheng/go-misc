@@ -45,13 +45,18 @@ func TestFile(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	sects := info.Sections
+	info.Sections = nil
 	t.Logf("%+v", info)
+	for _, sec := range sects {
+		t.Logf("%s: %+v", secNames[sec.Type], sec)
+	}
 
 	// Test messages.
-	for _, sec := range info.Sections {
+	for _, sec := range sects {
 		if sec.Type == SecMessages {
 			for id, off := range sec.Folders {
-				r := io.NewSectionReader(r.File, off, sec.Offset+sec.Length-off)
+				r := io.NewSectionReader(r.File, off, sec.Offset+16+sec.Length-off)
 				title, msgs, err := parseMessageFolder(r)
 				if err != nil {
 					t.Error(err)
@@ -61,6 +66,22 @@ func TestFile(t *testing.T) {
 				if len(msgs) > 0 {
 					t.Logf("First message: %s", msgs[0])
 					t.Logf("Last message: %s", msgs[len(msgs)-1])
+				}
+			}
+		}
+		if sec.Type == SecMMS {
+			for id, off := range sec.Folders {
+				r := io.NewSectionReader(r.File, off, sec.Offset+16+sec.Length-off)
+				title, msgs, err := parseMMSFolder(r)
+				if err != nil {
+					t.Error(err)
+				}
+				t.Logf("Folder %d %q", id, title)
+				t.Logf("%d messages", len(msgs))
+				if len(msgs) > 0 {
+					first, last := msgs[0], msgs[len(msgs)-1]
+					t.Logf("First message: %q...%q", first[:40], first[len(first)-40:])
+					t.Logf("Last message: %q...%q", last[:40], last[len(last)-40:])
 				}
 			}
 		}

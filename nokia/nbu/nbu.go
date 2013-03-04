@@ -174,8 +174,8 @@ func parseMessageFolder(r io.Reader) (title string, messages []string, err error
 	nMsg, err := read32(r)
 	messages = make([]string, 0, nMsg)
 	for i := 0; i < int(nMsg); i++ {
-		read32(r)
-		read32(r)
+		read32(r) // skip
+		read32(r) // skip
 		msg, err := readLongString(r)
 		messages = append(messages, msg)
 		if err == io.EOF {
@@ -184,6 +184,47 @@ func parseMessageFolder(r io.Reader) (title string, messages []string, err error
 			} else {
 				err = nil
 			}
+		}
+	}
+	return
+}
+
+func parseMMSFolder(r io.Reader) (title string, messages [][]byte, err error) {
+	var buf [8]byte
+	_, err = read32(r) // folder id.
+	title, err = readString(r)
+	if err != nil {
+		return
+	}
+	nMsg, err := read32(r)
+	messages = make([][]byte, 0, nMsg)
+	for i := 0; i < int(nMsg); i++ {
+		read32(r) // 0x2c
+		read32(r) // 0x1500
+		// addresses
+		r.Read(buf[:1])
+		read32(r)
+		read32(r)
+		readString(r)
+		read32(r) // 0
+		read64(r) // ?
+		read64(r) // ?
+		length, err := read32(r)
+		if err != nil {
+			return title, messages, err
+		}
+		data := make([]byte, length)
+		_, err = io.ReadFull(r, data)
+		messages = append(messages, data)
+		if err == io.EOF {
+			if i+1 != int(nMsg) {
+				err = io.ErrUnexpectedEOF
+			} else {
+				err = nil
+			}
+		}
+		if err != nil {
+			return title, messages, err
 		}
 	}
 	return
