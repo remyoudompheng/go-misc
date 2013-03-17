@@ -10,6 +10,7 @@ import (
 
 // NBU format parser as produced by Nokia Communication Center.
 
+// OpenFile opens a NBU archive for reading.
 func OpenFile(filename string) (*Reader, error) {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -29,6 +30,7 @@ type Reader struct {
 	Size int64
 }
 
+// A FileInfo describes a NBU archive metadata.
 type FileInfo struct {
 	BackupTime time.Time
 	IMEI       string
@@ -54,7 +56,10 @@ type Section struct {
 	Folders map[int]int64 // idx => offset
 }
 
-// Read file metadata and TOC.
+// Close closes the underlying file of r.
+func (r *Reader) Close() error { return r.File.Close() }
+
+// Info reads archive metadata and TOC.
 func (r *Reader) Info() (info FileInfo, err error) {
 	var buf [8]byte
 	// Find TOC offset.
@@ -163,6 +168,16 @@ var secNames = [...]string{
 	SecMMS:       "MMS",
 	SecBookmarks: "Bookmarks",
 	SecERROR:     "ERROR",
+}
+
+func (r *Reader) ReadMessageFolderAt(off int64) (title string, messages []string, err error) {
+	sr := io.NewSectionReader(r.File, off, r.Size-off)
+	return parseMessageFolder(sr)
+}
+
+func (r *Reader) ReadMMSFolderAt(off int64) (title string, messages [][]byte, err error) {
+	sr := io.NewSectionReader(r.File, off, r.Size-off)
+	return parseMMSFolder(sr)
 }
 
 func parseMessageFolder(r io.Reader) (title string, messages []string, err error) {
