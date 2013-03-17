@@ -125,6 +125,44 @@ func Soname(data []byte) (so string, ok bool) {
 	return "", false
 }
 
+func Depends(data []byte) (needed []string, err error) {
+	e, err := elf.NewFile(bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	section := e.Section(".dynamic")
+	if section == nil {
+		// not a dynamic binary.
+		return nil, nil
+	}
+	// e.stringtable(section.Link)
+	dynstr, _ := e.Sections[section.Link].Data()
+
+	switch e.Class {
+	case elf.ELFCLASS64:
+		n := section.Size / 16 // 2*sizeof(uintptr)
+		values := make([]elf.Dyn64, n)
+		binary.Read(section.Open(), binary.LittleEndian, values)
+		for _, v := range values {
+			if elf.DynTag(v.Tag) == elf.DT_NEEDED {
+				so := getstring(dynstr, int(v.Val))
+				needed = append(needed, so)
+			}
+		}
+	case elf.ELFCLASS32:
+		n := section.Size / 8
+		values := make([]elf.Dyn32, n)
+		binary.Read(section.Open(), binary.LittleEndian, values)
+		for _, v := range values {
+			if elf.DynTag(v.Tag) == elf.DT_NEEDED {
+				so := getstring(dynstr, int(v.Val))
+				needed = append(needed, so)
+			}
+		}
+	}
+	return needed, nil
+}
+
 type StringList []string
 
 func (s *StringList) Set(arg string) error { *s = strings.Split(arg, ","); return nil }
@@ -136,9 +174,11 @@ func errorf(format string, args ...interface{}) {
 
 func main() {
 	var repopath string
+	var deps bool
 	archs := StringList{"i686", "x86_64"}
 	flag.StringVar(&repopath, "repo", "", "path to repository")
 	flag.Var(&archs, "arch", "path to repository")
+	flag.BoolVar(&deps, "deps", false, "print dependencies instead of sonames")
 	flag.Parse()
 
 	if repopath != "" {
@@ -189,8 +229,19 @@ func main() {
 				continue
 			}
 			WalkELF(&t, func(fname string, data []byte) {
-				if soname, ok := Soname(data); ok {
-					fmt.Printf("%s,%s,%s\n", tarname, fname, soname)
+				if !deps {
+					soname, ok := Soname(data)
+					if ok {
+						fmt.Printf("%s,%s,%s\n", tarname, fname, soname)
+					}
+				} else {
+					depends, err := Depends(data)
+					if err != nil {
+						errorf("corrupted ELF file %q: %s", fname, err)
+					}
+					for _, s := range depends {
+						fmt.Printf("%s,%s,%s\n", tarname, fname, s)
+					}
 				}
 			})
 		}
