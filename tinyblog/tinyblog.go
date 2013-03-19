@@ -71,52 +71,50 @@ var homeTpl = template.Must(template.
     </style>
     <script type="text/javascript">
     $(document).ready(function() {
-	    $("#newpost").dialog({
-		    autoOpen: false,
-		    modal: true,
-		    height: "auto",
-		    width: 600,
-		    title: "New post",
-		    buttons: {
-			    "Send": function() {
-				    $.post("/post", {
-					    "title": $("#newpost input#title").val(),
-					    "text": $("#newpost textarea#text").val(),
-				    });
-				    $(this).dialog("close");
-			    },
-			    "Cancel": function() {
-				    $(this).dialog("close");
-			    },
-		    },
-	    });
+        $("#newpost").dialog({
+            autoOpen: false,
+            modal: true,
+            height: "auto",
+            width: 600,
+            title: "New post",
+            buttons: {
+                "Send": function() {
+                    $.post("/post", {
+                        "title": $("#newpost input#title").val(),
+                        "text": $("#newpost textarea#text").val(),
+                    });
+                    $(this).dialog("close");
+                },
+                "Cancel": function() {
+                    $(this).dialog("close");
+                },
+            },
+        });
 
-	    $("#newbutton").button();
-	    $("#newbutton").click(function() {
-	   	    $("#newpost").dialog("open");
-	    });
+        $("#newbutton").button();
+        $("#newbutton").click(function() {
+            $("#newpost").dialog("open");
+        });
     });
     </script>
   </head>
   <body>
     <h1>{{ .Title }}</h1>
-  
+
     <div id="content">
     {{ range $post := .Posts }}
       <div class="post ui-widget ui-widget-content ui-corner-all">
         <h2 class="ui-widget-header">{{ $post.Title }}</h2>
-  	
- 	  <p class="content">{{ $post.Text }}</p>
-  
-  	  <p class="meta">Posted <span class="when">{{ fmtTime $post.When }}</span>
-  	  by {{ $post.Author }}</p>
+        <p class="content">{{ $post.Text }}</p>
+        <p class="meta">Posted <span class="when">{{ fmtTime $post.When }}</span>
+          by {{ $post.Author }}</p>
       </div>
     {{ end }}
     </div>
 
     <div id="sidebar">
       <button id="newbutton">New post</button>
-    
+
       <div id="newpost">
       <form>
       <fieldset>
@@ -129,8 +127,8 @@ var homeTpl = template.Must(template.
       </fieldset>
       </form>
       </div>
- 
-	<div><p><a href="/source">Source code</a></p></div>
+
+      <div><p><a href="/source">Source code</a></p></div>
     </div>
   </body>
 </html>

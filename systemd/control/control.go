@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-      "strings"
+	"strings"
 	"text/tabwriter"
 
 	dbus "github.com/remyoudompheng/go-dbus"
@@ -47,7 +47,7 @@ func PrintUnits(w io.Writer, infos []UnitInfo) {
 		if info.JobId > 0 {
 			jobId = strconv.FormatInt(int64(info.JobId), 10)
 		}
-            id := strings.Replace(info.Id, "\\x2d", "-", -1)
+		id := strings.Replace(info.Id, "\\x2d", "-", -1)
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			id, info.LoadState, info.ActiveState, info.SubState, jobId, info.Description)
 	}

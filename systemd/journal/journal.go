@@ -83,7 +83,7 @@ func (h *Handle) Send(args ...string) error {
 			binary.LittleEndian.PutUint64(buf[len(buf):len(buf)+8], uint64(len(msg)))
 			buf = append(buf[:len(buf)+8], msg...)
 			buf = append(buf, '\n')
-                  fmt.Printf("%q\n", buf)
+			fmt.Printf("%q\n", buf)
 		} else {
 			// Simple message.
 			buf = append(buf, s...)

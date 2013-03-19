@@ -114,7 +114,6 @@ func BenchmarkMulNaive(bm *testing.B) {
 	}
 }
 
-
 func BenchmarkImul(bm *testing.B) {
 	a, b := int64(123456789123456789), int64(987654321)
 	for i := 0; i < bm.N; i++ {
