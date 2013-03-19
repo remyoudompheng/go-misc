@@ -597,6 +597,8 @@ const (
 	APFSUB           = C.APFSUB
 	APFSUBR          = C.APFSUBR
 	APINSRW          = C.APINSRW
+	APINSRD          = C.APINSRD
+	APINSRQ          = C.APINSRQ
 	APMADDWL         = C.APMADDWL
 	APMAXSW          = C.APMAXSW
 	APMAXUB          = C.APMAXUB
@@ -614,6 +616,7 @@ const (
 	APSHUFL          = C.APSHUFL
 	APSHUFLW         = C.APSHUFLW
 	APSHUFW          = C.APSHUFW
+	APSHUFB          = C.APSHUFB
 	APSLLO           = C.APSLLO
 	APSLLL           = C.APSLLL
 	APSLLQ           = C.APSLLQ
