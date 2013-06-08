@@ -116,7 +116,9 @@ const (
 	AUSEFIELD           = 0x6d
 	ALOCALS             = 0x6e
 	ATYPE               = 0x6f
-	ALAST               = 0x70
+	ANPTRS              = 0x70
+	APTRS               = 0x71
+	ALAST               = 0x72
 	C_SCOND      Suffix = 0xf
 	C_SBIT       Suffix = 0x10
 	C_PBIT       Suffix = 0x20
@@ -170,4 +172,5 @@ const (
 	D_PLT1              = 0x2d
 	D_PLT2              = 0x2e
 	D_CALL              = 0x2f
+	D_TLS               = 0x30
 )

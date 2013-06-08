@@ -476,10 +476,12 @@ const (
 	AORPS        = C.AORPS
 	APADDQ       = C.APADDQ
 	APAND        = C.APAND
+	APCMPEQB     = C.APCMPEQB
 	APMAXSW      = C.APMAXSW
 	APMAXUB      = C.APMAXUB
 	APMINSW      = C.APMINSW
 	APMINUB      = C.APMINUB
+	APMOVMSKB    = C.APMOVMSKB
 	APSADBW      = C.APSADBW
 	APSUBB       = C.APSUBB
 	APSUBL       = C.APSUBL
@@ -517,6 +519,8 @@ const (
 	AUSEFIELD    = C.AUSEFIELD
 	ALOCALS      = C.ALOCALS
 	ATYPE        = C.ATYPE
+	ANPTRS       = C.ANPTRS
+	APTRS        = C.APTRS
 	ALAST        = C.ALAST
 	D_AL         = C.D_AL
 	D_CL         = C.D_CL
@@ -576,6 +580,7 @@ const (
 	D_PCREL      = C.D_PCREL
 	D_GOTOFF     = C.D_GOTOFF
 	D_GOTREL     = C.D_GOTREL
+	D_TLS        = C.D_TLS
 	T_TYPE       = C.T_TYPE
 	T_INDEX      = C.T_INDEX
 	T_OFFSET     = C.T_OFFSET

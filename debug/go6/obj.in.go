@@ -698,6 +698,8 @@ const (
 	AUSEFIELD        = C.AUSEFIELD
 	ALOCALS          = C.ALOCALS
 	ATYPE            = C.ATYPE
+	ANPTRS           = C.ANPTRS
+	APTRS            = C.APTRS
 	ALAST            = C.ALAST
 	D_AL             = C.D_AL
 	D_CL             = C.D_CL
@@ -782,6 +784,7 @@ const (
 	D_INDIR          = C.D_INDIR
 	D_SIZE           = C.D_SIZE
 	D_PCREL          = C.D_PCREL
+	D_TLS            = C.D_TLS
 	T_TYPE           = C.T_TYPE
 	T_INDEX          = C.T_INDEX
 	T_OFFSET         = C.T_OFFSET

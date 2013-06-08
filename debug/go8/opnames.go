@@ -472,10 +472,12 @@ var opnames = [ALAST + 1]string{
 	AORPS:        "ORPS",
 	APADDQ:       "PADDQ",
 	APAND:        "PAND",
+	APCMPEQB:     "PCMPEQB",
 	APMAXSW:      "PMAXSW",
 	APMAXUB:      "PMAXUB",
 	APMINSW:      "PMINSW",
 	APMINUB:      "PMINUB",
+	APMOVMSKB:    "PMOVMSKB",
 	APSADBW:      "PSADBW",
 	APSUBB:       "PSUBB",
 	APSUBL:       "PSUBL",
@@ -513,6 +515,8 @@ var opnames = [ALAST + 1]string{
 	AUSEFIELD:    "USEFIELD",
 	ALOCALS:      "LOCALS",
 	ATYPE:        "TYPE",
+	ANPTRS:       "NPTRS",
+	APTRS:        "PTRS",
 	ALAST:        "LAST",
 }
 var regnames = [256]string{
@@ -574,4 +578,5 @@ var regnames = [256]string{
 	D_PCREL:  "PCREL",
 	D_GOTOFF: "GOTOFF",
 	D_GOTREL: "GOTREL",
+	D_TLS:    "TLS",
 }

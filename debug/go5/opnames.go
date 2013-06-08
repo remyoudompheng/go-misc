@@ -115,6 +115,8 @@ var opnames = [ALAST + 1]string{
 	AUSEFIELD: "USEFIELD",
 	ALOCALS:   "LOCALS",
 	ATYPE:     "TYPE",
+	ANPTRS:    "NPTRS",
+	APTRS:     "PTRS",
 	ALAST:     "LAST",
 }
 var regnames = [256]string{
@@ -149,4 +151,5 @@ var regnames = [256]string{
 	D_PLT1:    "PLT1",
 	D_PLT2:    "PLT2",
 	D_CALL:    "CALL",
+	D_TLS:     "TLS",
 }

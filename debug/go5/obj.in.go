@@ -119,6 +119,8 @@ const (
 	AUSEFIELD           = C.AUSEFIELD
 	ALOCALS             = C.ALOCALS
 	ATYPE               = C.ATYPE
+	ANPTRS              = C.ANPTRS
+	APTRS               = C.APTRS
 	ALAST               = C.ALAST
 	C_SCOND      Suffix = C.C_SCOND
 	C_SBIT       Suffix = C.C_SBIT
@@ -173,4 +175,5 @@ const (
 	D_PLT1              = C.D_PLT1
 	D_PLT2              = C.D_PLT2
 	D_CALL              = C.D_CALL
+	D_TLS               = C.D_TLS
 )

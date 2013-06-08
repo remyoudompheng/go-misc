@@ -695,7 +695,9 @@ const (
 	AUSEFIELD        = 0x2b0
 	ALOCALS          = 0x2b1
 	ATYPE            = 0x2b2
-	ALAST            = 0x2b3
+	ANPTRS           = 0x2b3
+	APTRS            = 0x2b4
+	ALAST            = 0x2b5
 	D_AL             = 0x0
 	D_CL             = 0x1
 	D_DL             = 0x2
@@ -779,6 +781,7 @@ const (
 	D_INDIR          = 0x7b
 	D_SIZE           = 0xf6
 	D_PCREL          = 0xf7
+	D_TLS            = 0xf8
 	T_TYPE           = 0x1
 	T_INDEX          = 0x2
 	T_OFFSET         = 0x4
