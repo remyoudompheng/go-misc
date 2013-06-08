@@ -11,6 +11,8 @@ import (
 )
 
 type Reader struct {
+	Version goobj.Version
+
 	rd       *bufio.Reader
 	syms     [256]string
 	pc       int
@@ -70,6 +72,12 @@ func (r *Reader) ReadProg() (p Prog, err error) {
 	}
 	if op <= AXXX || op >= ALAST {
 		return p, errOpOutOfRange(op)
+	}
+	if r.Version == goobj.GO1 {
+		if int(op) >= len(go1ops) {
+			return p, errOpOutOfRange(op)
+		}
+		op = go1ops[op]
 	}
 	switch op {
 	case ANAME, ASIGNAME:

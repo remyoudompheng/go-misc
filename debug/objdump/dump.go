@@ -105,9 +105,13 @@ func dumpobj(rd *bufio.Reader) {
 		r5.Version = ver
 		dump(Reader5{r5})
 	case '6':
-		dump(Reader6{go6.NewReader(rd)})
+		r6 := go6.NewReader(rd)
+		r6.Version = ver
+		dump(Reader6{r6})
 	case '8':
-		dump(Reader8{go8.NewReader(rd)})
+		r8 := go8.NewReader(rd)
+		r8.Version = ver
+		dump(Reader8{r8})
 	}
 }
 
