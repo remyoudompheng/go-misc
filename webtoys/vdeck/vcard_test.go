@@ -66,7 +66,7 @@ func TestEscape(t *testing.T) {
 
 	s2 := joinList(splitList(s, ','), ',')
 	if s != s2 {
-		t.Errorf("got %q, expected %q")
+		t.Errorf("got %q, expected %q", s2, s)
 	}
 
 	slice := splitList("Hello;World;;;", ';')

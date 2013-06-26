@@ -68,7 +68,6 @@ func (cli *Client) ReadLines() error {
 		prefix, command, args := parseIrcLine(line)
 		cli.HandleEvent(command, prefix, args)
 	}
-	panic("unreachable")
 }
 
 type Event struct {

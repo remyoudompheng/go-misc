@@ -81,7 +81,6 @@ func WalkELF(tarfile io.ReadCloser, do func(filename string, data []byte)) error
 		io.Copy(buf, t)
 		do(entry.Name, buf.Bytes())
 	}
-	panic("unreachable")
 }
 
 func getstring(table []byte, offset int) string {

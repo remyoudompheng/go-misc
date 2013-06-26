@@ -47,7 +47,7 @@ func TestAr(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(data) != 785 {
-		t.Errorf("bad data size %s, expected 785", len(data))
+		t.Errorf("bad data size %d, expected 785", len(data))
 	}
 
 	hdr, err = ar.Next()

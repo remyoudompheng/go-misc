@@ -17,7 +17,7 @@ func TestFileSet(t *testing.T) {
 		p := fset.Position(pos)
 		pref := Position{File: file, Line: line}
 		if p != pref {
-			t.Errorf("got %s, expected %s")
+			t.Errorf("got %s, expected %s", p, pref)
 		}
 	}
 
