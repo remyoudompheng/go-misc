@@ -15,7 +15,7 @@ const (
 	JQUERY_VERSION = "1.8.3"
 	JQUERY_URL     = "http://code.jquery.com/jquery-" + JQUERY_VERSION + ".min.js"
 
-	BOOTSTRAP_URL = "http://twitter.github.com/bootstrap/assets/bootstrap.zip"
+	BOOTSTRAP_URL = "https://github.com/twbs/bootstrap/releases/download/v3.0.0-rc1/bs-v3.0.0-rc1-dist.zip"
 )
 
 // RegisterAll registers:
@@ -34,8 +34,15 @@ func RegisterAll(mux *http.ServeMux) error {
 	if err != nil {
 		return fmt.Errorf("could not prepare Bootstrap: %s", err)
 	}
-	mux.Handle("/libs/bootstrap/", http.StripPrefix("/libs", h))
+	mux.Handle("/libs/bootstrap/", http.StripPrefix("/libs/bootstrap", addPrefix("/dist", h)))
 	return nil
+}
+
+func addPrefix(p string, h http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		req.URL.Path = p + req.URL.Path
+		h.ServeHTTP(w, req)
+	}
 }
 
 type ContentHandler []byte
