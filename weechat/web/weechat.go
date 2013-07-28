@@ -51,8 +51,8 @@ const homeTplStr = `
 <html>
   <head>
     <title>Weechat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="/libs/bootstrap/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/libs/bootstrap/css/bootstrap-responsive.min.css" rel="stylesheet">
     <script src="/libs/jquery.min.js"></script>
     <script src="/libs/bootstrap/js/bootstrap.min.js"></script>
     <script type="text/javascript">
@@ -72,22 +72,21 @@ const homeTplStr = `
     </style>
   </head>
   <body style="padding-top: 60px;">
-    <div class="container-fluid">
+    <div class="container">
     <div class="navbar navbar-inverse navbar-fixed-top">
-      <div class="navbar-inner">
+      <a class="navbar-brand" href="/">Rémy's Webtoys</a>
       <div class="nav-collapse collapse">
-        <ul class="nav">
+        <ul class="nav navbar-nav">
           <li><a href="/">Home</a></li>
           <li class="active"><a href="#">Weechat</a></li>
         </ul>
       </div>
-      </div>
     </div>
     </div>
 
-    <div class="container-fluid">
-    <div class="row-fluid">
-      <div class="span3"><!-- left, vertical -->
+    <div class="container">
+    <div class="row">
+      <div class="col-lg-3"><!-- left, vertical -->
       <div class="sidebar-nav well">
         <ul class="nav nav-list" id="buffers">
           {{ range $buf := $ }}
@@ -97,15 +96,15 @@ const homeTplStr = `
       </div>
       </div>
 
-      <div class="span9">
-        <div class="row-fluid">
-        <div class="span12 well well-large"><!-- title -->
+      <div class="col-lg-9">
+        <div class="row">
+        <div class="col-12 well well-large"><!-- title -->
           <h1>Weechat</h1>
         </div>
         </div>
 
-        <div class="row-fluid">
-        <div class="span12" id="lines">
+        <div class="row">
+        <div class="col-12" id="lines">
         <!-- buffer lines -->
         </div>
         </div>
@@ -131,14 +130,14 @@ func handleHome(w http.ResponseWriter, req *http.Request) {
 const linesTplStr = `
 {{ range $line := $ }}
 {{ if $line.Displayed }}
-<div class="row-fluid">
-  <div class="span10">
+<div class="row">
+  <div class="col-lg-10">
   {{ if isAction $line }}<span class="label label-success">{{ htmlMessage $line }}</span>
   {{ else }}{{ if isSystem $line }}<span class="label label-info">{{ $line.Prefix }} {{ $line.Message }}</span>
   {{ else }}<span class="label">{{ $line.Prefix }}</span> {{ htmlMessage $line }}
   {{ end }}{{ end }}
   </div>
-  <div class="span2 irc-date">{{ humanTime $line.Date }}</div>
+  <div class="col-lg-2 irc-date">{{ humanTime $line.Date }}</div>
 </div>
 {{ end }}{{ end }}
 `
