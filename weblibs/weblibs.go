@@ -15,7 +15,7 @@ const (
 	JQUERY_VERSION = "1.8.3"
 	JQUERY_URL     = "http://code.jquery.com/jquery-" + JQUERY_VERSION + ".min.js"
 
-	BOOTSTRAP_URL = "https://github.com/twbs/bootstrap/releases/download/v3.0.0-rc1/bs-v3.0.0-rc1-dist.zip"
+	BOOTSTRAP_URL = "https://github.com/twbs/bootstrap/releases/download/v3.0.0/bootstrap-3.0.0-dist.zip"
 )
 
 // RegisterAll registers:
