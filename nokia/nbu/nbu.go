@@ -105,6 +105,9 @@ func (r *Reader) Info() (info FileInfo, err error) {
 				typ = i
 			}
 		}
+		if typ == SecERROR {
+			debugf("unknown section GUID %x", guid)
+		}
 		debugf("section %x (%s) at offset %x+%x",
 			guid, secNames[typ], off, length)
 		section := Section{
@@ -114,6 +117,27 @@ func (r *Reader) Info() (info FileInfo, err error) {
 			Length: int64(length),
 		}
 		switch typ {
+		case SecFS:
+			nFiles, _ := read32(sec)
+			read32(sec)           // ?
+			read32(sec)           // ?
+			read32(sec)           // ?
+			read32(sec)           // ?
+			read32(sec)           // ?
+			off, _ := read64(sec) // off
+			_, _ = nFiles, off
+		case SecContacts:
+			nItems, _ := read32(sec) // files
+			section.Items = int64(nItems)
+			nFolder, _ := read32(sec) // folders
+			section.Folders = make(map[int]int64, nFolder)
+			for i := 0; i < int(nFolder); i++ {
+				idx, _ := read32(sec) // idx
+				off, _ := read64(sec) // off
+				debugf("folder %d at %x", idx, off)
+				section.Folders[int(idx)] = int64(off)
+			}
+
 		case SecGroups,
 			SecMessages,
 			SecMMS,
@@ -128,10 +152,16 @@ func (r *Reader) Info() (info FileInfo, err error) {
 				debugf("folder %d at %x", idx, off)
 				section.Folders[int(idx)] = int64(off)
 			}
+
 		case SecCalendar, SecMemo:
 			nbMemos, _ := read64(sec)
 			debugf("%d memos", nbMemos)
 			section.Items = int64(nbMemos)
+
+		case SecSettingsContacts,
+			SecSettingsCalendar:
+			_, _ = read32(sec)
+			_, _ = read32(sec)
 		}
 		info.Sections = append(info.Sections, section)
 	}
@@ -140,34 +170,44 @@ func (r *Reader) Info() (info FileInfo, err error) {
 
 const (
 	SecFS = iota
-	SecVCards
+	SecContacts
 	SecGroups
 	SecCalendar
 	SecMemo
 	SecMessages
 	SecMMS
 	SecBookmarks
+	SecSettingsContacts
+	SecSettingsCalendar
 	SecERROR
 )
 
 var secUUID = [...][2]uint64{
+	SecFS:        {0x08294b2b0e89174b, 0x977317c24c1adbc8},
+	SecContacts:  {0xefd42ed0a3513847, 0x9dd7305c7af068d3},
 	SecGroups:    {0x1f0e5865a19f3c49, 0x9e230e25eb240fe1},
 	SecCalendar:  {0x16cdf8e8235e5a4e, 0xb735dddff1481222},
 	SecMemo:      {0x5c62973bdca75441, 0xa1c3059de3246808},
 	SecMessages:  {0x617aefd1aabea149, 0x9d9d155abb4ceb8e},
 	SecMMS:       {0x471dd465efe33240, 0x8c7764caa383aa33},
 	SecBookmarks: {0x7f77905631f95749, 0x8d96ee445dbebc5a},
+
+	SecSettingsContacts: {0x60c2cb9c7e732441, 0x8d902ec0d9b0b68c},
+	SecSettingsCalendar: {0x2dedc72957682245, 0xaed4eb210296a1ee},
 }
 
 var secNames = [...]string{
-	SecFS:        "Internal files",
-	SecGroups:    "Groups",
-	SecCalendar:  "Calendar",
-	SecMemo:      "Memos",
-	SecMessages:  "Messages",
-	SecMMS:       "MMS",
-	SecBookmarks: "Bookmarks",
-	SecERROR:     "ERROR",
+	SecFS:               "Internal files",
+	SecContacts:         "Contacts",
+	SecGroups:           "Groups",
+	SecCalendar:         "Calendar",
+	SecMemo:             "Memos",
+	SecMessages:         "Messages",
+	SecMMS:              "MMS",
+	SecBookmarks:        "Bookmarks",
+	SecSettingsContacts: "Settings/Contacts",
+	SecSettingsCalendar: "Settings/Calendar",
+	SecERROR:            "ERROR",
 }
 
 func (r *Reader) ReadMessageFolderAt(off int64) (title string, messages []string, err error) {
@@ -189,6 +229,7 @@ func parseMessageFolder(r io.Reader) (title string, messages []string, err error
 	nMsg, err := read32(r)
 	messages = make([]string, 0, nMsg)
 	for i := 0; i < int(nMsg); i++ {
+		// FIXME: check errors.
 		read32(r) // skip
 		read32(r) // skip
 		msg, err := readLongString(r)
@@ -214,6 +255,7 @@ func parseMMSFolder(r io.Reader) (title string, messages [][]byte, err error) {
 	nMsg, err := read32(r)
 	messages = make([][]byte, 0, nMsg)
 	for i := 0; i < int(nMsg); i++ {
+		// FIXME: check errors.
 		read32(r) // 0x2c
 		read32(r) // 0x1500
 		// addresses
