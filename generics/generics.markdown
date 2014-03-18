@@ -95,6 +95,26 @@ parameterised types.
 
 This is incompatible with people wanting covariance.
 
+# Alternatives to full polymorphism
+
+## Specializable packages
+
+In this proposal, packages may use a placeholder identifier to designate
+a type, and can generate at compile time a specialized version of
+themselves where the placeholder is replaced by a particular type.
+
+This approach was used for package `container/vector`, and can be found
+in the external tool `gotgo`. Specialization is easily done through
+lexical transformation of code.
+
+The advantage is that the language rules need very little change to
+include this concept.
+
+The drawback is that combining generic data structures coming from
+different packages may turn out to be impossible due to cyclical imports.
+
+This approach exists in Ada.
+
 # Implementation strategies
 
 ## Compile-time instantiation
