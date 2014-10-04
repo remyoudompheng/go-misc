@@ -188,6 +188,8 @@ type deliverMessage struct {
 	// Concatenated SMS
 	Concat            bool
 	Ref, Part, NParts int
+
+	SingleShift byte
 }
 
 func (msg deliverMessage) UserData() string {
@@ -199,14 +201,19 @@ func (msg deliverMessage) UserData() string {
 		}
 		return string(utf16.Decode(runes))
 	} else {
+		if msg.SingleShift > 0 && msg.RawData[0] == 0x1b {
+			// FIXME: actually implement single shift table.
+			return translateSMS(msg.RawData[1:], &basicSMSset)
+		}
 		return translateSMS(msg.RawData, &basicSMSset)
 	}
 }
 
 func parseDeliverMessage(s []byte) (msg deliverMessage, size int, err error) {
 	p := s
-	msg.MsgType = p[0] & 3
-	msg.MoreMsg = p[0]&4 == 0
+	msg.MsgType = p[0] & 3    // TP-MTI
+	msg.MoreMsg = p[0]&4 == 0 // TP-MMS
+	hasUDH := p[0]&0x40 != 0  // TP-UDHI
 	addrLen := int(p[1])
 	msg.FromAddr, err = parseAddress(p[1 : 3+(addrLen+1)/2])
 	if err != nil {
@@ -247,21 +254,26 @@ func parseDeliverMessage(s []byte) (msg deliverMessage, size int, err error) {
 		msg.Part = int(ud[5])
 		msg.NParts = int(ud[4])
 		msg.Ref = int(ud[3])
-		if msg.Unicode {
-			msg.RawData = msg.RawData[6:]
-		} else {
-			msg.RawData = msg.RawData[7:] // remove initial 48 bits
-		}
 	case len(ud) >= 7 && ud[0] == 6 && ud[1] == 8 && ud[2] == 4:
 		// Concatenated SMS data with 16-bit ref number.
 		msg.Concat = true
 		msg.Part = int(ud[6])
 		msg.NParts = int(ud[5])
 		msg.Ref = int(ud[3])<<8 | int(ud[4])
+	}
+	// TODO: parse other UDH fields
+	// http://en.wikipedia.org/wiki/User_Data_Header
+	if hasUDH {
+		udhLength := ud[0] + 1
+		if ud[1] == 0x24 {
+			// single shift table
+			msg.SingleShift = ud[3]
+		}
 		if msg.Unicode {
-			msg.RawData = msg.RawData[7:]
+			msg.RawData = msg.RawData[udhLength:]
 		} else {
-			msg.RawData = msg.RawData[8:] // remove initial 56 bits
+			n := (8*udhLength + 6) / 7 // n such that 7*n >= udhLength*8
+			msg.RawData = msg.RawData[n:]
 		}
 	}
 	return
