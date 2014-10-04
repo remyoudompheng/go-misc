@@ -192,14 +192,14 @@ func (msg deliverMessage) UserData() string {
 		return translateSMS(msg.RawData, &basicSMSset)
 	}
 }
+
 func parseDeliverMessage(s []byte) (msg deliverMessage, size int) {
 	p := s
 	msg.MsgType = p[0] & 3
 	msg.MoreMsg = p[0]&4 == 0
-	nbLen := int(p[1])
-	msg.FromAddr = decodeBCD(p[3 : 3+(nbLen+1)/2])
-	//log.Printf("number: %s", number)
-	size += 3 + (nbLen+1)/2
+	addrLen := int(p[1])
+	msg.FromAddr = parseAddress(p[1 : 3+(addrLen+1)/2])
+	size += 3 + (addrLen+1)/2
 	p = s[size:]
 
 	// Format
@@ -252,6 +252,25 @@ func parseDeliverMessage(s []byte) (msg deliverMessage, size int) {
 		}
 	}
 	return
+}
+
+func parseAddress(b []byte) string {
+	length := int(b[0])
+	typ := b[1]
+	switch (typ >> 4) & 7 {
+	case 1: // international
+		num := decodeBCD(b[2:])
+		return "+" + num[:length]
+	case 2: // national
+		num := decodeBCD(b[2:])
+		return num[:length]
+	case 5:
+            addr7 := unpack7bit(b[2:])
+            return translateSMS(addr7, &basicSMSset)
+	default:
+		println(typ)
+		panic("unsupported address format")
+	}
 }
 
 // Ref: GSM 03.40 section 9.2.3.11

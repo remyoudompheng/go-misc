@@ -46,3 +46,15 @@ func TestDecode7bit(t *testing.T) {
 	}
 	t.Logf("%s", s)
 }
+
+func TestParseAddr(t *testing.T) {
+	// Examples from Wikipedia: http://en.wikipedia.org/wiki/GSM_03.40#Addresses
+	a := parseAddress([]byte("\x0B\x91\x51\x55\x21\x43\x65\xF7"))
+	if a != "+15551234567" {
+		t.Errorf("got %q, expected +15551234567", a)
+	}
+	a = parseAddress([]byte("\x14\xD0\xC4\xF2\x3C\x7D\x76\x03\x90\xEF\x76\x19"))
+	if a != "Design@Home" {
+		t.Errorf("got %q, expected Design@home", a)
+	}
+}
