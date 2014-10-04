@@ -4,8 +4,10 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 
 	//"github.com/remyoudompheng/go-misc/nokia/mms"
 	"github.com/remyoudompheng/go-misc/nokia/nbf"
@@ -40,5 +42,15 @@ func main() {
 		}
 		stamp := m.Msg.SMSCStamp.Format("2006-01-02 15:04:05 -0700")
 		log.Printf("%s at %s %s: %q", m.Peer, stamp, part, text)
+	}
+
+	images, err := f.Images()
+	for i, img := range images {
+		out := filepath.Join(destdir, fmt.Sprintf("image%03d.jpg", i))
+		log.Printf("dumping image %s", out)
+		err := ioutil.WriteFile(out, img, 0644)
+		if err != nil {
+			log.Printf("error writing image to %s: %s", out, err)
+		}
 	}
 }
