@@ -89,9 +89,7 @@ type rawMessage struct {
 	Peer string
 	Text string
 	// From PDU
-	Number  string
-	Stamp   time.Time
-	Payload []byte // raw SMS-encoded payload
+	Msg deliverMessage
 }
 
 // SMS encoding.
@@ -102,7 +100,7 @@ type rawMessage struct {
 // [82]byte (zero)
 // [41]uint16 (NUL-terminated peer name)
 // PDU (offset is 0xb0)
-// 64 unknown bytes
+// 65 unknown bytes
 // 0001 0003 size(uint16) [size/2]uint16 (NUL-terminated text)
 // 02 size(uint16) + NUL-terminated [size]byte (SMS center)
 // 04 0001 002b size(uint16) + [size]byte (NUL-terminated UTF16BE) (peer)
@@ -125,30 +123,27 @@ func parseMessage(s []byte) (rawMessage, error) {
 	// * NN <NN septets> (NN : number of packed 7-bit data)
 	// received SMS: 04 0b 91
 	pdu := s[0xb0:]
-	nbLen := pdu[1]
-	number := decodeBCD(pdu[3 : 3+(nbLen+1)/2])
-	//log.Printf("number: %s", number)
-	pdu = pdu[3+(nbLen+1)/2:]
-
-	// Date time
-	pdu = pdu[2:]
-	stamp := parseDateTime(pdu[:7])
-	//log.Printf("stamp: %s", stamp)
-	pdu = pdu[7:]
-
-	// Payload
-	length := int(pdu[0])
-	packedLen := length - length/8
-	data := unpack7bit(pdu[1 : 1+packedLen])
-	//log.Printf("payload: %q", translateSMS(data, &basicSMSset))
-	pdu = pdu[1+packedLen:]
-
+	msgType := pdu[0]
+	var msg deliverMessage
+	switch msgType & 3 {
+	case 0: // SMS-DELIVER
+		var n int
+		msg, n = parseDeliverMessage(pdu)
+		pdu = pdu[n:]
+	case 1: // SMS-SUBMIT
+	case 2: // SMS-COMMAND
+	case 3: // reserved
+		panic("invalid message type 3")
+	}
 	// END of PDU.
+	if len(pdu) == 0 {
+		return rawMessage{Peer: peer, Msg: msg}, nil
+	}
 	if len(pdu) < 72 {
 		return rawMessage{}, fmt.Errorf("truncated message")
 	}
 	pdu = pdu[65:]
-	length = int(pdu[5])
+	length := int(pdu[5])
 	pdu = pdu[6:]
 	text := make([]rune, length/2)
 	for i := range text {
@@ -157,13 +152,93 @@ func parseMessage(s []byte) (rawMessage, error) {
 	//log.Printf("%q", string(text))
 
 	m := rawMessage{
-		Peer:    peer,
-		Number:  number,
-		Stamp:   stamp,
-		Payload: data,
-		Text:    string(text),
+		Peer: peer,
+		Text: string(text),
+		Msg:  msg,
 	}
 	return m, nil
+}
+
+// Parsing of DELIVER-MESSAGE
+
+// A deliverMessage represents the contents of a SMS-DELIVER message
+// as per GSM 03.40 TPDU specification.
+type deliverMessage struct {
+	MsgType  byte
+	MoreMsg  bool // true encoded as zero
+	FromAddr string
+	Protocol byte
+	// Coding byte
+	Compressed bool
+	Unicode    bool
+	SMSCStamp  time.Time
+
+	RawData []byte // UCS-2 encoded text, unpacked 7-bit data.
+
+	// Concatenated SMS
+	Concat            bool
+	Ref, Part, NParts int
+}
+
+func (msg deliverMessage) UserData() string {
+	if msg.Unicode {
+		runes := make([]uint16, len(msg.RawData)/2)
+		for i := range runes {
+			hi, lo := msg.RawData[2*i], msg.RawData[2*i+1]
+			runes[i] = uint16(hi)<<8 | uint16(lo)
+		}
+		return string(utf16.Decode(runes))
+	} else {
+		return translateSMS(msg.RawData, &basicSMSset)
+	}
+}
+func parseDeliverMessage(s []byte) (msg deliverMessage, size int) {
+	p := s
+	msg.MsgType = p[0] & 3
+	msg.MoreMsg = p[0]&4 == 0
+	nbLen := int(p[1])
+	msg.FromAddr = decodeBCD(p[3 : 3+(nbLen+1)/2])
+	//log.Printf("number: %s", number)
+	size += 3 + (nbLen+1)/2
+	p = s[size:]
+
+	// Format
+	format := p[1]
+	msg.Compressed = format&0x20 != 0
+	msg.Unicode = format&8 != 0
+
+	// Date time
+	msg.SMSCStamp = parseDateTime(p[2:9])
+	size += 2 + 7
+	p = s[size:]
+
+	// Payload
+	if msg.Unicode {
+		// Unicode (70 UCS-2 characters in 140 bytes)
+		length := int(p[0]) // length in bytes
+		msg.RawData = p[1 : length+1]
+		size += length + 1
+	} else {
+		// 7-bit encoded format (160 septets in 140 bytes)
+		length := int(p[0]) // length in septets
+		packedLen := length - length/8
+		msg.RawData = unpack7bit(p[1 : 1+packedLen])
+		msg.RawData = msg.RawData[:length]
+		size += packedLen + 1
+	}
+	if s := p[1:]; len(s) >= 6 && s[0] == 5 && s[1] == 0 && s[2] == 3 {
+		// Concatenated SMS data starts with 0x05 0x00 0x03 Ref NPart Part
+		msg.Concat = true
+		msg.Part = int(s[5])
+		msg.NParts = int(s[4])
+		msg.Ref = int(s[3])
+		if msg.Unicode {
+			msg.RawData = msg.RawData[6:]
+		} else {
+			msg.RawData = msg.RawData[7:] // remove initial 48 bits
+		}
+	}
+	return
 }
 
 // Ref: GSM 03.40 section 9.2.3.11

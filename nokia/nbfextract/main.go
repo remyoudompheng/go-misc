@@ -26,12 +26,17 @@ func main() {
 	}
 	defer f.Close()
 
-      inbox, err := f.Inbox()
-      if err != nil {
-            log.Fatal(err)
-      }
+	inbox, err := f.Inbox()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-      for _, m := range inbox {
-		log.Printf("%s at %s : %q", m.Peer, m.Stamp, m.Text)
-      }
+	for _, m := range inbox {
+		//log.Print(m.Filename)
+		text := m.Text
+		if text == "" {
+			text = m.Msg.UserData()
+		}
+		log.Printf("%s at %s : %q", m.Peer, m.Msg.SMSCStamp, text)
+	}
 }
