@@ -120,8 +120,8 @@ func parseMessage(s []byte) (rawMessage, error) {
 	// incoming PDU frame:
 	// * NN 91 <NN/2 bytes> (NN : number of BCD digits, little endian)
 	//   source number, padded with 0xf halfbyte.
-	// * 00 00
-	// * YY MM DD HH MM SS (BCD date time, little endian)
+	// * 00 FF (data format, GSM 03.40 section 9.2.3.10)
+	// * YY MM DD HH MM SS ZZ (BCD date time, little endian)
 	// * NN <NN septets> (NN : number of packed 7-bit data)
 	// received SMS: 04 0b 91
 	pdu := s[0xb0:]
@@ -132,32 +132,23 @@ func parseMessage(s []byte) (rawMessage, error) {
 
 	// Date time
 	pdu = pdu[2:]
-	var dt [6]int
-	for i := range dt {
-		b := pdu[i]
-		dt[i] = int(b&0xf)*10 + int(b>>4)
-	}
-	stamp := time.Date(
-		2000+dt[0],
-		time.Month(dt[1]),
-		dt[2],
-		dt[3], dt[4], dt[5], 0, time.UTC)
+	stamp := parseDateTime(pdu[:7])
 	//log.Printf("stamp: %s", stamp)
-	pdu = pdu[6:]
+	pdu = pdu[7:]
 
 	// Payload
-	length := pdu[1]
+	length := int(pdu[0])
 	packedLen := length - length/8
-	data := unpack7bit(pdu[2 : 2+packedLen])
+	data := unpack7bit(pdu[1 : 1+packedLen])
 	//log.Printf("payload: %q", translateSMS(data, &basicSMSset))
-	pdu = pdu[2+packedLen:]
+	pdu = pdu[1+packedLen:]
 
 	// END of PDU.
 	if len(pdu) < 72 {
 		return rawMessage{}, fmt.Errorf("truncated message")
 	}
 	pdu = pdu[65:]
-	length = pdu[5]
+	length = int(pdu[5])
 	pdu = pdu[6:]
 	text := make([]rune, length/2)
 	for i := range text {
@@ -173,6 +164,19 @@ func parseMessage(s []byte) (rawMessage, error) {
 		Text:    string(text),
 	}
 	return m, nil
+}
+
+// Ref: GSM 03.40 section 9.2.3.11
+func parseDateTime(b []byte) time.Time {
+	var dt [7]int
+	for i := range dt {
+		dt[i] = int(b[i]&0xf)*10 + int(b[i]>>4)
+	}
+	return time.Date(
+		2000+dt[0],
+		time.Month(dt[1]),
+		dt[2],
+		dt[3], dt[4], dt[5], 0, time.FixedZone("", dt[6]*3600/4))
 }
 
 func decodeBCD(b []byte) string {
