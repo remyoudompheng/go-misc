@@ -106,7 +106,7 @@ type rawMessage struct {
 // 04 0001 002b size(uint16) + [size]byte (NUL-terminated UTF16BE) (peer)
 // [23]byte unknown data
 
-func parseMessage(s []byte) (rawMessage, error) {
+func parseMessage(s []byte) (m rawMessage, err error) {
 	// peer (fixed offset 0x5e)
 	var runes []uint16
 	for off := 0x5e; s[off]|s[off+1] != 0; off += 2 {
@@ -124,11 +124,19 @@ func parseMessage(s []byte) (rawMessage, error) {
 	// received SMS: 04 0b 91
 	pdu := s[0xb0:]
 	msgType := pdu[0]
+	if msgType == 0x8c {
+		err = fmt.Errorf("MMS is not supported")
+		return
+	}
 	var msg deliverMessage
 	switch msgType & 3 {
 	case 0: // SMS-DELIVER
 		var n int
-		msg, n = parseDeliverMessage(pdu)
+		var err error
+		msg, n, err = parseDeliverMessage(pdu)
+		if err != nil {
+			return rawMessage{}, err
+		}
 		pdu = pdu[n:]
 	case 1: // SMS-SUBMIT
 	case 2: // SMS-COMMAND
@@ -151,7 +159,7 @@ func parseMessage(s []byte) (rawMessage, error) {
 	}
 	//log.Printf("%q", string(text))
 
-	m := rawMessage{
+	m = rawMessage{
 		Peer: peer,
 		Text: string(text),
 		Msg:  msg,
@@ -193,12 +201,15 @@ func (msg deliverMessage) UserData() string {
 	}
 }
 
-func parseDeliverMessage(s []byte) (msg deliverMessage, size int) {
+func parseDeliverMessage(s []byte) (msg deliverMessage, size int, err error) {
 	p := s
 	msg.MsgType = p[0] & 3
 	msg.MoreMsg = p[0]&4 == 0
 	addrLen := int(p[1])
-	msg.FromAddr = parseAddress(p[1 : 3+(addrLen+1)/2])
+	msg.FromAddr, err = parseAddress(p[1 : 3+(addrLen+1)/2])
+	if err != nil {
+		return
+	}
 	size += 3 + (addrLen+1)/2
 	p = s[size:]
 
@@ -254,22 +265,24 @@ func parseDeliverMessage(s []byte) (msg deliverMessage, size int) {
 	return
 }
 
-func parseAddress(b []byte) string {
+func parseAddress(b []byte) (string, error) {
 	length := int(b[0])
 	typ := b[1]
 	switch (typ >> 4) & 7 {
 	case 1: // international
 		num := decodeBCD(b[2:])
-		return "+" + num[:length]
+		if len(num) < length {
+			return "", fmt.Errorf("BUG: num=%q when parsing %x", num, b)
+		}
+		return "+" + num[:length], nil
 	case 2: // national
 		num := decodeBCD(b[2:])
-		return num[:length]
+		return num[:length], nil
 	case 5:
-            addr7 := unpack7bit(b[2:])
-            return translateSMS(addr7, &basicSMSset)
+		addr7 := unpack7bit(b[2:])
+		return translateSMS(addr7, &basicSMSset), nil
 	default:
-		println(typ)
-		panic("unsupported address format")
+		return "", fmt.Errorf("unsupported address format: 0x%02x", typ)
 	}
 }
 
