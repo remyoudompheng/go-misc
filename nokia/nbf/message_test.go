@@ -45,6 +45,12 @@ func TestDecode7bit(t *testing.T) {
 		t.Errorf("got %q, expected %q", s, ref)
 	}
 	t.Logf("%s", s)
+
+	data = []byte{0x9b, 0xd7, 0xfb, 0x05} // 1b 2f 6f 2f
+	s = translateSMS(unpack7bit(data), &basicSMSset)
+	if s != `\o/` {
+		t.Errorf(`got %q, expected \o/`, s)
+	}
 }
 
 func TestParseAddr(t *testing.T) {
@@ -62,5 +68,12 @@ func TestParseAddr(t *testing.T) {
 	}
 	if a != "Design@Home" {
 		t.Errorf("got %q, expected Design@home", a)
+	}
+	a, err = parseAddress([]byte("\x03\x85\x16\xf8"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a != "618" {
+		t.Errorf("got %q, expected 618", a)
 	}
 }

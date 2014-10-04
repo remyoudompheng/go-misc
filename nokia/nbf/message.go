@@ -86,6 +86,8 @@ func DosTime(stamp uint32) time.Time {
 
 // A big-endian interpretation of the binary format.
 type rawMessage struct {
+	Filename string // DEBUG
+
 	Peer string
 	Text string
 	// From PDU
@@ -275,10 +277,10 @@ func parseAddress(b []byte) (string, error) {
 			return "", fmt.Errorf("BUG: num=%q when parsing %x", num, b)
 		}
 		return "+" + num[:length], nil
-	case 2: // national
+	case 0, 2: // unknown, national
 		num := decodeBCD(b[2:])
 		return num[:length], nil
-	case 5:
+	case 5: // alphanumeric
 		addr7 := unpack7bit(b[2:])
 		return translateSMS(addr7, &basicSMSset), nil
 	default:
@@ -333,17 +335,23 @@ func unpack7bit(s []byte) []byte {
 
 // translateSMS decodes a 7-bit encoded SMS text into a standard
 // UTF-8 encoded string.
-func translateSMS(s []byte, charset *[128]rune) string {
-	r := make([]rune, len(s))
-	for i, b := range s {
-		r[i] = charset[b]
+func translateSMS(s []byte, charset *[256]rune) string {
+	r := make([]rune, 0, len(s))
+	esc := byte(0)
+	for _, b := range s {
+		if charset[b] == -1 { // escape
+			esc = 128
+		} else {
+			r = append(r, charset[esc|b])
+			esc = 0
+		}
 	}
 	return string(r)
 }
 
 // See http://en.wikipedia.org/wiki/GSM_03.38
 
-var basicSMSset = [128]rune{
+var basicSMSset = [256]rune{
 	// 0x00
 	'@', '£', '$', '¥', 'è', 'é', 'ù', 'ì',
 	'ò', 'Ç', '\n', 'Ø', 'ø', '\r', 'Å', 'å',
@@ -368,4 +376,11 @@ var basicSMSset = [128]rune{
 	// 0x70
 	'p', 'q', 'r', 's', 't', 'u', 'v', 'w',
 	'x', 'y', 'z', 'ä', 'ö', 'ñ', 'ü', 'à',
+	// Extensions
+	0x8A: '\f',
+	0x94: '^',
+	0xA8: '{', 0xA9: '}', 0xAF: '\\',
+	0xBC: '[', 0xBD: '~', 0xBE: ']',
+	0xC0: '|',
+	0xE5: '€',
 }

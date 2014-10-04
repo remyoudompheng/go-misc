@@ -39,15 +39,19 @@ func (r *Reader) Inbox() ([]rawMessage, error) {
 		fr, err := f.Open()
 		if err != nil {
 			log.Printf("cannot read %s: %s", base, err)
+			continue
 		}
 		blob, err := ioutil.ReadAll(fr)
 		if err != nil {
 			log.Printf("cannot read %s: %s", base, err)
+			continue
 		}
 		m, err := parseMessage(blob)
 		if err != nil {
 			log.Printf("cannot parse %s: %s", base, err)
+			continue
 		}
+		m.Filename = f.Name
 		msgs = append(msgs, m)
 	}
 	return msgs, nil

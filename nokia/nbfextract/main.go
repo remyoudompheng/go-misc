@@ -32,7 +32,7 @@ func main() {
 	}
 
 	for _, m := range inbox {
-            log.Printf(m.Filename)
+		log.Printf(m.Filename)
 		text := m.Msg.UserData()
 		part := ""
 		if m.Msg.Concat {
