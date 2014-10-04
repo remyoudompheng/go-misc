@@ -33,21 +33,32 @@ func main() {
 		log.Fatal(err)
 	}
 
-	for _, m := range inbox {
-		log.Printf(m.Filename)
-		text := m.Msg.UserData()
-		part := ""
-		if m.Msg.Concat {
-			part = fmt.Sprintf("(%d: %d/%d)", m.Msg.Ref, m.Msg.Part, m.Msg.NParts)
+	dumpMessage := func(m nbf.SMS, p string) {
+		mout, err := os.Create(p)
+		if err != nil {
+			log.Fatalf("cannot create %s/inbox: %s", destdir, err)
 		}
-		stamp := m.Msg.SMSCStamp.Format("2006-01-02 15:04:05 -0700")
-		log.Printf("%s at %s %s: %q", m.Peer, stamp, part, text)
+		fmt.Fprintf(mout, "Date: %s\n", m.When.Format("02 Jan 2006 15:04:05 -0700"))
+		fmt.Fprintf(mout, "From: %s\n", m.Peer)
+		fmt.Fprintf(mout, "\n%s\n\n", m.Text)
+		err = mout.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	for i, m := range inbox {
+		p := filepath.Join(destdir, m.When.Format("20060102-150405")+
+			fmt.Sprintf("-%04d-%s.msg", i, m.Peer))
+		dumpMessage(m, p)
 	}
 
 	images, err := f.Images()
+	if err != nil {
+		log.Fatal("cannot extract images:", err)
+	}
+	log.Printf("dumping %d images to %s/image*.jpg", len(images), destdir)
 	for i, img := range images {
 		out := filepath.Join(destdir, fmt.Sprintf("image%03d.jpg", i))
-		log.Printf("dumping image %s", out)
 		err := ioutil.WriteFile(out, img, 0644)
 		if err != nil {
 			log.Printf("error writing image to %s: %s", out, err)

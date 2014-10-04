@@ -7,7 +7,9 @@ import (
 	"io/ioutil"
 	"log"
 	"path"
+	"sort"
 	"strings"
+	"time"
 )
 
 // OpenFile opens a NBF archive for reading.
@@ -27,16 +29,27 @@ func (r *Reader) Close() error {
 	return r.z.Close()
 }
 
-func (r *Reader) Inbox() ([]rawMessage, error) {
-	msgs := make([]rawMessage, 0, len(r.z.File)/4)
+type SMS struct {
+	Type int // 0: incoming, 1: outgoing
+	Peer string
+	When time.Time
+	Text string
+}
+
+func (r *Reader) Inbox() ([]SMS, error) {
+	msgs := make([]SMS, 0, len(r.z.File)/4)
+
+	type multiKey struct {
+		Peer string
+		Ref  int
+	}
+	multiparts := make(map[multiKey][]deliverMessage)
 
 	for _, f := range r.z.File {
 		if !strings.HasPrefix(f.Name, "predefmessages/1/") {
 			continue
 		}
 		base := path.Base(f.Name)
-		//m.ParseFilename(base)
-		//var m Message
 		fr, err := f.Open()
 		if err != nil {
 			log.Printf("cannot read %s: %s", base, err)
@@ -52,11 +65,44 @@ func (r *Reader) Inbox() ([]rawMessage, error) {
 			log.Printf("cannot parse %s: %s", base, err)
 			continue
 		}
-		m.Filename = f.Name
-		msgs = append(msgs, m)
+
+		sms := SMS{
+			Type: int(m.Msg.MsgType),
+			Peer: m.Msg.FromAddr,
+			When: m.Msg.SMSCStamp,
+			Text: m.Msg.UserData(),
+		}
+
+		if m.Msg.Concat {
+			key := multiKey{Peer: sms.Peer, Ref: m.Msg.Ref}
+			parts := append(multiparts[key], m.Msg)
+			if len(parts) == m.Msg.NParts {
+				delete(multiparts, key)
+				p := make(map[int]string)
+				for _, part := range parts {
+					p[part.Part] = part.UserData()
+				}
+				sms.Text = ""
+				for i := 1; i <= m.Msg.NParts; i++ {
+					sms.Text += p[i]
+				}
+				msgs = append(msgs, sms)
+			} else {
+				multiparts[key] = parts
+			}
+		} else {
+			msgs = append(msgs, sms)
+		}
 	}
+	sort.Sort(smsByDate(msgs))
 	return msgs, nil
 }
+
+type smsByDate []SMS
+
+func (s smsByDate) Len() int           { return len(s) }
+func (s smsByDate) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s smsByDate) Less(i, j int) bool { return s[i].When.Before(s[j].When) }
 
 func (r *Reader) Images() (images [][]byte, err error) {
 	// convenience method to extract JPEG images
@@ -90,7 +136,7 @@ func (r *Reader) Images() (images [][]byte, err error) {
 				continue
 			} else if idx1 > 0 && idx2 > idx1 {
 				count++
-				log.Printf("found image %d in %s", count, base)
+				//log.Printf("found image %d in %s", count, base)
 				images = append(images, blob[idx:idx+idx2+2])
 				blob = blob[idx+idx2+2:]
 			} else {
