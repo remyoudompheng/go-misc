@@ -226,16 +226,29 @@ func parseDeliverMessage(s []byte) (msg deliverMessage, size int) {
 		msg.RawData = msg.RawData[:length]
 		size += packedLen + 1
 	}
-	if s := p[1:]; len(s) >= 6 && s[0] == 5 && s[1] == 0 && s[2] == 3 {
+	ud := p[1:]
+	switch {
+	case len(ud) >= 6 && ud[0] == 5 && ud[1] == 0 && ud[2] == 3:
 		// Concatenated SMS data starts with 0x05 0x00 0x03 Ref NPart Part
 		msg.Concat = true
-		msg.Part = int(s[5])
-		msg.NParts = int(s[4])
-		msg.Ref = int(s[3])
+		msg.Part = int(ud[5])
+		msg.NParts = int(ud[4])
+		msg.Ref = int(ud[3])
 		if msg.Unicode {
 			msg.RawData = msg.RawData[6:]
 		} else {
 			msg.RawData = msg.RawData[7:] // remove initial 48 bits
+		}
+	case len(ud) >= 7 && ud[0] == 6 && ud[1] == 8 && ud[2] == 4:
+		// Concatenated SMS data with 16-bit ref number.
+		msg.Concat = true
+		msg.Part = int(ud[6])
+		msg.NParts = int(ud[5])
+		msg.Ref = int(ud[3])<<8 | int(ud[4])
+		if msg.Unicode {
+			msg.RawData = msg.RawData[7:]
+		} else {
+			msg.RawData = msg.RawData[8:] // remove initial 56 bits
 		}
 	}
 	return

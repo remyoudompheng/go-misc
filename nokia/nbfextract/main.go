@@ -32,11 +32,13 @@ func main() {
 	}
 
 	for _, m := range inbox {
-		//log.Print(m.Filename)
-		text := m.Text
-		if text == "" {
-			text = m.Msg.UserData()
+            log.Printf(m.Filename)
+		text := m.Msg.UserData()
+		part := ""
+		if m.Msg.Concat {
+			part = fmt.Sprintf("(%d: %d/%d)", m.Msg.Ref, m.Msg.Part, m.Msg.NParts)
 		}
-		log.Printf("%s at %s : %q", m.Peer, m.Msg.SMSCStamp, text)
+		stamp := m.Msg.SMSCStamp.Format("2006-01-02 15:04:05 -0700")
+		log.Printf("%s at %s %s: %q", m.Peer, stamp, part, text)
 	}
 }
