@@ -30,10 +30,11 @@ func (r *Reader) Close() error {
 }
 
 type SMS struct {
-	Type int // 0: incoming, 1: outgoing
-	Peer string
-	When time.Time
-	Text string
+	Type  int // 0: incoming, 1: outgoing
+	Peer  string
+	Peers []string
+	When  time.Time
+	Text  string
 }
 
 func (r *Reader) Inbox() ([]SMS, error) {
@@ -66,24 +67,26 @@ func (r *Reader) Inbox() ([]SMS, error) {
 			continue
 		}
 
+		msg := m.Msg.(deliverMessage)
 		sms := SMS{
-			Type: int(m.Msg.MsgType),
-			Peer: m.Msg.FromAddr,
-			When: m.Msg.SMSCStamp,
-			Text: m.Msg.UserData(),
+			Type:  int(msg.MsgType),
+			Peer:  msg.FromAddr,
+			Peers: m.Peers,
+			When:  msg.SMSCStamp,
+			Text:  msg.UserData(),
 		}
 
-		if m.Msg.Concat {
-			key := multiKey{Peer: sms.Peer, Ref: m.Msg.Ref}
-			parts := append(multiparts[key], m.Msg)
-			if len(parts) == m.Msg.NParts {
+		if msg.Concat {
+			key := multiKey{Peer: sms.Peer, Ref: msg.Ref}
+			parts := append(multiparts[key], msg)
+			if len(parts) == msg.NParts {
 				delete(multiparts, key)
 				p := make(map[int]string)
 				for _, part := range parts {
 					p[part.Part] = part.UserData()
 				}
 				sms.Text = ""
-				for i := 1; i <= m.Msg.NParts; i++ {
+				for i := 1; i <= msg.NParts; i++ {
 					sms.Text += p[i]
 				}
 				msgs = append(msgs, sms)
@@ -93,6 +96,55 @@ func (r *Reader) Inbox() ([]SMS, error) {
 		} else {
 			msgs = append(msgs, sms)
 		}
+	}
+	sort.Sort(smsByDate(msgs))
+	return msgs, nil
+}
+
+func (r *Reader) Outbox() ([]SMS, error) {
+	msgs := make([]SMS, 0, len(r.z.File)/4)
+
+	type multiKey struct {
+		Peer string
+		Ref  int
+	}
+	//multiparts := make(map[multiKey][]deliverMessage)
+
+	for _, f := range r.z.File {
+		if !strings.HasPrefix(f.Name, "predefmessages/3/") {
+			continue
+		}
+		base := path.Base(f.Name)
+		fr, err := f.Open()
+		if err != nil {
+			log.Printf("cannot read %s: %s", base, err)
+			continue
+		}
+		blob, err := ioutil.ReadAll(fr)
+		if err != nil {
+			log.Printf("cannot read %s: %s", base, err)
+			continue
+		}
+		m, err := parseMessage(blob)
+		if err != nil {
+			log.Printf("cannot parse %s: %s", base, err)
+			continue
+		}
+
+		msg := m.Msg.(submitMessage)
+		if m.Peer == "" && len(m.Peers) == 0 {
+			log.Printf("WARN: empty peer in %s", base)
+		}
+		sms := SMS{
+			Type:  int(msg.MsgType),
+			Peer:  m.Peer,
+			Peers: m.Peers,
+			// FIXME: parse timestamp
+			Text: msg.UserData(),
+		}
+		msgs = append(msgs, sms)
+
+		// FIXME: manage multipart
 	}
 	sort.Sort(smsByDate(msgs))
 	return msgs, nil

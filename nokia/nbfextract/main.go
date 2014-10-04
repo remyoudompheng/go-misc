@@ -39,7 +39,13 @@ func main() {
 			log.Fatalf("cannot create %s/inbox: %s", destdir, err)
 		}
 		fmt.Fprintf(mout, "Date: %s\n", m.When.Format("02 Jan 2006 15:04:05 -0700"))
-		fmt.Fprintf(mout, "From: %s\n", m.Peer)
+		if m.Type == 0 {
+			fmt.Fprintf(mout, "From: %s\n", m.Peer)
+		} else {
+			for _, p := range m.Peers {
+				fmt.Fprintf(mout, "To: %s\n", p)
+			}
+		}
 		fmt.Fprintf(mout, "\n%s\n\n", m.Text)
 		err = mout.Close()
 		if err != nil {
@@ -48,7 +54,20 @@ func main() {
 	}
 	for i, m := range inbox {
 		p := filepath.Join(destdir, m.When.Format("20060102-150405")+
-			fmt.Sprintf("-%04d-%s.msg", i, m.Peer))
+			fmt.Sprintf("-%04d-%s-inbox.msg", i, m.Peer))
+		dumpMessage(m, p)
+	}
+
+	outbox, err := f.Outbox()
+	if err != nil {
+		log.Fatal(err)
+	}
+	for i, m := range outbox {
+		if m.Peer == "" && len(m.Peers) > 0 {
+			m.Peer = "multiple"
+		}
+		p := filepath.Join(destdir, m.When.Format("20060102-150405")+
+			fmt.Sprintf("-%04d-%s-outbox.msg", i, m.Peer))
 		dumpMessage(m, p)
 	}
 

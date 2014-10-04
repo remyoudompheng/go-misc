@@ -1,6 +1,7 @@
 package nbf
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"strconv"
@@ -88,10 +89,15 @@ func DosTime(stamp uint32) time.Time {
 type rawMessage struct {
 	Filename string // DEBUG
 
-	Peer string
-	Text string
+	Peer  string
+	Text  string
+	Peers []string
 	// From PDU
-	Msg deliverMessage
+	Msg message
+}
+
+type message interface {
+	UserData() string
 }
 
 // SMS encoding.
@@ -130,7 +136,7 @@ func parseMessage(s []byte) (m rawMessage, err error) {
 		err = fmt.Errorf("MMS is not supported")
 		return
 	}
-	var msg deliverMessage
+	var msg message
 	switch msgType & 3 {
 	case 0: // SMS-DELIVER
 		var n int
@@ -141,6 +147,13 @@ func parseMessage(s []byte) (m rawMessage, err error) {
 		}
 		pdu = pdu[n:]
 	case 1: // SMS-SUBMIT
+		var n int
+		var err error
+		msg, n, err = parseSubmitMessage(pdu)
+		if err != nil {
+			return rawMessage{}, err
+		}
+		pdu = pdu[n:]
 	case 2: // SMS-COMMAND
 	case 3: // reserved
 		panic("invalid message type 3")
@@ -159,13 +172,46 @@ func parseMessage(s []byte) (m rawMessage, err error) {
 	for i := range text {
 		text[i] = rune(binary.BigEndian.Uint16(pdu[2*i : 2*i+2]))
 	}
-	//log.Printf("%q", string(text))
 
 	m = rawMessage{
 		Peer: peer,
 		Text: string(text),
 		Msg:  msg,
 	}
+
+	// peers at the end.
+	if msgType&3 == 0 {
+		return m, nil
+	}
+	data := pdu[length:]
+	getStringAfter := func(pattern []byte) string {
+		idx := bytes.Index(data, pattern)
+		if idx < 0 {
+			return ""
+		}
+		length := binary.BigEndian.Uint16(data[idx+len(pattern):]) / 2
+		s := data[idx+len(pattern)+2:]
+		text := make([]rune, length)
+		for i := 0; i < int(length); i++ {
+			text[i] = rune(binary.BigEndian.Uint16(s[2*i : 2*i+2]))
+		}
+		data = s[2*length:]
+		if len(text) > 0 && text[len(text)-1] == 0 {
+			text = text[:len(text)-1]
+		}
+		return string(text)
+	}
+	idx := 0
+	for len(data) > 0 {
+		number := getStringAfter([]byte{4, 0, 1, byte(idx), 0x2b})
+		if number == "" {
+			break
+		}
+		name := getStringAfter([]byte{0x2c})
+		m.Peers = append(m.Peers, fmt.Sprintf("%s <%s>", number, name))
+		idx++
+	}
+
 	return m, nil
 }
 
@@ -183,6 +229,10 @@ type deliverMessage struct {
 	Unicode    bool
 	SMSCStamp  time.Time
 
+	userData
+}
+
+type userData struct {
 	RawData []byte // UCS-2 encoded text, unpacked 7-bit data.
 
 	// Concatenated SMS
@@ -233,7 +283,78 @@ func parseDeliverMessage(s []byte) (msg deliverMessage, size int, err error) {
 	p = s[size:]
 
 	// Payload
+	var udsize int
+	msg.userData, udsize = parseUserData(p, msg.Unicode, hasUDH)
+	size += udsize
+	return
+}
+
+// A submitMessage represents the contents of a SMS-DELIVER message
+// as per GSM 03.40 TPDU specification.
+type submitMessage struct {
+	MsgType  byte
+	RefID    byte
+	ToAddr   string
+	Protocol byte
+	// Coding byte
+	Compressed bool
+	Unicode    bool
+
+	userData
+}
+
+func (msg submitMessage) UserData() string {
 	if msg.Unicode {
+		runes := make([]uint16, len(msg.RawData)/2)
+		for i := range runes {
+			hi, lo := msg.RawData[2*i], msg.RawData[2*i+1]
+			runes[i] = uint16(hi)<<8 | uint16(lo)
+		}
+		return string(utf16.Decode(runes))
+	} else {
+		if msg.SingleShift > 0 && msg.RawData[0] == 0x1b {
+			// FIXME: actually implement single shift table.
+			return translateSMS(msg.RawData[1:], &basicSMSset)
+		}
+		return translateSMS(msg.RawData, &basicSMSset)
+	}
+}
+
+func parseSubmitMessage(s []byte) (msg submitMessage, size int, err error) {
+	p := s
+	msg.MsgType = p[0] & 3 // TP-MTI
+	hasVP := p[0] >> 2 & 3
+	hasUDH := p[0]&0x40 != 0 // TP-UDHI
+	msg.RefID = p[1]
+	addrLen := int(p[2])
+	msg.ToAddr, err = parseAddress(p[2 : 4+(addrLen+1)/2])
+	if err != nil {
+		return
+	}
+	size += 4 + (addrLen+1)/2
+	p = s[size:]
+
+	// Format
+	format := p[1]
+	msg.Compressed = format&0x20 != 0
+	msg.Unicode = format&8 != 0
+
+	// Validity Period
+	if hasVP != 0 {
+		panic("validity period not implemented")
+	}
+	size += 2 + 1 // unknown 0xff byte
+	p = s[size:]
+
+	// Payload
+	var udsize int
+	msg.userData, udsize = parseUserData(p, msg.Unicode, hasUDH)
+	size += udsize
+	return
+}
+
+func parseUserData(p []byte, uni, udh bool) (msg userData, size int) {
+	if uni {
 		// Unicode (70 UCS-2 characters in 140 bytes)
 		length := int(p[0]) // length in bytes
 		msg.RawData = p[1 : length+1]
@@ -263,13 +384,13 @@ func parseDeliverMessage(s []byte) (msg deliverMessage, size int, err error) {
 	}
 	// TODO: parse other UDH fields
 	// http://en.wikipedia.org/wiki/User_Data_Header
-	if hasUDH {
+	if udh {
 		udhLength := ud[0] + 1
 		if ud[1] == 0x24 {
 			// single shift table
 			msg.SingleShift = ud[3]
 		}
-		if msg.Unicode {
+		if uni {
 			msg.RawData = msg.RawData[udhLength:]
 		} else {
 			n := (8*udhLength + 6) / 7 // n such that 7*n >= udhLength*8
