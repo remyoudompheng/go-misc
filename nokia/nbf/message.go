@@ -154,6 +154,7 @@ func parseMessage(s []byte) (m rawMessage, err error) {
 		}
 		pdu = pdu[n:]
 	case 2: // SMS-COMMAND
+		return rawMessage{}, fmt.Errorf("unsupported message type SMS-COMMAND")
 	case 3: // reserved
 		panic("invalid message type 3")
 	}
