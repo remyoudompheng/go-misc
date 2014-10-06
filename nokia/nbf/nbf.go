@@ -115,6 +115,11 @@ func (r *Reader) Outbox() ([]SMS, error) {
 			continue
 		}
 		base := path.Base(f.Name)
+		info, err := parseNBFFilename(base)
+		if err != nil {
+			log.Printf("invalid entry name %q: %s", base, err)
+			continue
+		}
 		fr, err := f.Open()
 		if err != nil {
 			log.Printf("cannot read %s: %s", base, err)
@@ -139,8 +144,8 @@ func (r *Reader) Outbox() ([]SMS, error) {
 			Type:  int(msg.MsgType),
 			Peer:  m.Peer,
 			Peers: m.Peers,
-			// FIXME: parse timestamp
-			Text: msg.UserData(),
+			When:  DosTime(info.Timestamp).Local(),
+			Text:  msg.UserData(),
 		}
 		msgs = append(msgs, sms)
 

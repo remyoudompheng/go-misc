@@ -12,9 +12,7 @@ import (
 // predefmessages/1: inbox
 // predefmessages/3: outbox
 
-type Message struct {
-	// Zip directory information
-	Date time.Time
+type msgInfo struct {
 	// Filename information
 	Seq          uint32
 	Timestamp    uint32
@@ -23,7 +21,6 @@ type Message struct {
 	PartNo       uint8
 	PartTotal    uint8
 	Peer         [12]byte
-	Pad          byte
 }
 
 // ParseFilename decomposes the filename of messages found in NBF archives.
@@ -36,36 +33,38 @@ type Message struct {
 // 00000000: zero
 // 00000000: zero
 // 000000000: zero (9 digits)
-// 36300XXXXXXX : 12 digit number
+// 36300XXXXXXX : 12 digit number (7 digit in old format)
 // 0000007C : a checksum ?
-func (msg *Message) ParseFilename(filename string) (err error) {
+func parseNBFFilename(filename string) (inf msgInfo, err error) {
 	s := filename
-	s, msg.Seq, err = getUint32(s)
+	s, inf.Seq, err = getUint32(s)
 	if err != nil {
-		return err
+		return
 	}
-	s, msg.Timestamp, err = getUint32(s)
+	s, inf.Timestamp, err = getUint32(s)
 	if err != nil {
-		return err
+		return
 	}
 	s, n, err := getUint32(s)
 	if err != nil {
-		return err
+		return
 	}
-	msg.MultipartSeq = uint16(n >> 16)
-	msg.Flags = uint16(n)
+	inf.MultipartSeq = uint16(n >> 16)
+	inf.Flags = uint16(n)
 	s = s[8:] // skip
 	s, n, err = getUint32(s)
 	if err != nil {
-		return err
+		return
 	}
-	msg.PartNo = uint8(n >> 12)
-	msg.PartTotal = uint8(n >> 20)
+	inf.PartNo = uint8(n >> 12)
+	inf.PartTotal = uint8(n >> 20)
 	s = s[25:] // skip
-	copy(msg.Peer[:], s[:len(msg.Peer)])
-	s = s[len(msg.Peer):]
-	msg.Pad = uint8(s[7])
-	return nil
+	if len(s) == 12+8 {
+		copy(inf.Peer[:], s[:12])
+	} else {
+		copy(inf.Peer[:], s[:7])
+	}
+	return inf, nil
 }
 
 func getUint32(s string) (rest string, n uint32, err error) {
