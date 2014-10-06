@@ -5,9 +5,8 @@ import (
 )
 
 func TestMessage_ParseFilename(t *testing.T) {
-	const name = "0000186F3C52A89B0042201000500000004030000000000000000000000000000+336303132330000009F"
-	var msg Message
-	err := msg.ParseFilename(name)
+	const name = "0000186F3C52A89B0042201000500000004030000000000000000000000000000+336345632330000009F"
+	msg, err := parseNBFFilename(name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,8 +28,8 @@ func TestMessage_ParseFilename(t *testing.T) {
 		t.Errorf("got part %d/%d, expected 3/4",
 			msg.PartNo, msg.PartTotal)
 	}
-	if peer := string(msg.Peer[:]); peer != "+33630313233" {
-		t.Errorf("wrong peer %s, expected +33630313233", peer)
+	if msg.Peer != "+33634563233" {
+		t.Errorf("wrong peer %s, expected +33634563233", msg.Peer)
 	}
 }
 

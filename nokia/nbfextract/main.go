@@ -75,10 +75,11 @@ func main() {
 	if err != nil {
 		log.Fatal("cannot extract images:", err)
 	}
-	log.Printf("dumping %d images to %s/image*.jpg", len(images), destdir)
+	log.Printf("dumping %d images to %s", len(images), destdir)
 	for i, img := range images {
-		out := filepath.Join(destdir, fmt.Sprintf("image%03d.jpg", i))
-		err := ioutil.WriteFile(out, img, 0644)
+		stamp := img.Stamp.Format("20060102-150405")
+		out := filepath.Join(destdir, fmt.Sprintf("%s-%s-%03d.jpg", stamp, img.Peer, i))
+		err := ioutil.WriteFile(out, img.Data, 0644)
 		if err != nil {
 			log.Printf("error writing image to %s: %s", out, err)
 		}

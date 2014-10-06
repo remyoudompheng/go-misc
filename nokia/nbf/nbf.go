@@ -190,13 +190,27 @@ func mergeConcatSMS(parts []userData, uni bool) string {
 	return t
 }
 
-func (r *Reader) Images() (images [][]byte, err error) {
+type Image struct {
+	Stamp time.Time
+	Peer  string
+	Data  []byte
+}
+
+func (r *Reader) Images() (images []Image, err error) {
 	// convenience method to extract JPEG images
 	for _, f := range r.z.File {
 		if !strings.HasPrefix(f.Name, "predefmessages/") {
 			continue
 		}
+		if f.Mode().IsDir() {
+			continue
+		}
 		base := path.Base(f.Name)
+		info, err := parseNBFFilename(base)
+		if err != nil {
+			log.Printf("invalid entry name %q: %s", base, err)
+			continue
+		}
 		fr, err := f.Open()
 		if err != nil {
 			log.Printf("cannot read %s: %s", base, err)
@@ -223,7 +237,12 @@ func (r *Reader) Images() (images [][]byte, err error) {
 			} else if idx1 > 0 && idx2 > idx1 {
 				count++
 				//log.Printf("found image %d in %s", count, base)
-				images = append(images, blob[idx:idx+idx2+2])
+				img := Image{
+					Stamp: DosTime(info.Timestamp).Local(),
+					Peer:  info.Peer,
+					Data:  blob[idx : idx+idx2+2],
+				}
+				images = append(images, img)
 				blob = blob[idx+idx2+2:]
 			} else {
 				break

@@ -20,7 +20,7 @@ type msgInfo struct {
 	Flags        uint16
 	PartNo       uint8
 	PartTotal    uint8
-	Peer         [12]byte
+	Peer         string
 }
 
 // ParseFilename decomposes the filename of messages found in NBF archives.
@@ -37,6 +37,9 @@ type msgInfo struct {
 // 0000007C : a checksum ?
 func parseNBFFilename(filename string) (inf msgInfo, err error) {
 	s := filename
+      if len(s) < 80 {
+            return inf, fmt.Errorf("too short")
+      }
 	s, inf.Seq, err = getUint32(s)
 	if err != nil {
 		return
@@ -60,9 +63,9 @@ func parseNBFFilename(filename string) (inf msgInfo, err error) {
 	inf.PartTotal = uint8(n >> 20)
 	s = s[25:] // skip
 	if len(s) == 12+8 {
-		copy(inf.Peer[:], s[:12])
+		inf.Peer = string(s[:12])
 	} else {
-		copy(inf.Peer[:], s[:7])
+		inf.Peer = string(s[:7])
 	}
 	return inf, nil
 }
