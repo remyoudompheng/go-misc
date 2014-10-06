@@ -37,9 +37,9 @@ type msgInfo struct {
 // 0000007C : a checksum ?
 func parseNBFFilename(filename string) (inf msgInfo, err error) {
 	s := filename
-      if len(s) < 80 {
-            return inf, fmt.Errorf("too short")
-      }
+	if len(s) < 80 {
+		return inf, fmt.Errorf("too short")
+	}
 	s, inf.Seq, err = getUint32(s)
 	if err != nil {
 		return

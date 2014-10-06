@@ -78,7 +78,7 @@ func main() {
 	log.Printf("dumping %d images to %s", len(images), destdir)
 	for i, img := range images {
 		stamp := img.Stamp.Format("20060102-150405")
-		out := filepath.Join(destdir, fmt.Sprintf("%s-%s-%03d.jpg", stamp, img.Peer, i))
+		out := filepath.Join(destdir, fmt.Sprintf("%s-%s-%03d.%s", stamp, img.Peer, i, img.Type))
 		err := ioutil.WriteFile(out, img.Data, 0644)
 		if err != nil {
 			log.Printf("error writing image to %s: %s", out, err)
