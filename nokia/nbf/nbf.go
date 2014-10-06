@@ -44,8 +44,8 @@ func (r *Reader) Inbox() ([]SMS, error) {
 		Peer string
 		Ref  int
 	}
-	multiparts := make(map[multiKey][]deliverMessage)
-
+	multiparts := make(map[multiKey][]userData)
+	baseMsg := make(map[multiKey]SMS)
 	for _, f := range r.z.File {
 		if !strings.HasPrefix(f.Name, "predefmessages/1/") {
 			continue
@@ -78,17 +78,15 @@ func (r *Reader) Inbox() ([]SMS, error) {
 
 		if msg.Concat {
 			key := multiKey{Peer: sms.Peer, Ref: msg.Ref}
-			parts := append(multiparts[key], msg)
+			parts := append(multiparts[key], msg.userData)
+			if msg.Part == 1 {
+				baseMsg[key] = sms
+			}
 			if len(parts) == msg.NParts {
 				delete(multiparts, key)
-				p := make(map[int]string)
-				for _, part := range parts {
-					p[part.Part] = part.UserData()
-				}
-				sms.Text = ""
-				for i := 1; i <= msg.NParts; i++ {
-					sms.Text += p[i]
-				}
+				sms := baseMsg[key]
+				delete(baseMsg, key)
+				sms.Text = mergeConcatSMS(parts, msg.Unicode)
 				msgs = append(msgs, sms)
 			} else {
 				multiparts[key] = parts
@@ -108,7 +106,8 @@ func (r *Reader) Outbox() ([]SMS, error) {
 		Peer string
 		Ref  int
 	}
-	//multiparts := make(map[multiKey][]deliverMessage)
+	multiparts := make(map[multiKey][]userData)
+	baseMsg := make(map[multiKey]SMS)
 
 	for _, f := range r.z.File {
 		if !strings.HasPrefix(f.Name, "predefmessages/3/") {
@@ -147,9 +146,25 @@ func (r *Reader) Outbox() ([]SMS, error) {
 			When:  DosTime(info.Timestamp).Local(),
 			Text:  msg.UserData(),
 		}
-		msgs = append(msgs, sms)
 
-		// FIXME: manage multipart
+		if msg.Concat {
+			key := multiKey{Peer: sms.Peer, Ref: int(msg.RefID)<<16 | msg.Ref}
+			if msg.Part == 1 {
+				baseMsg[key] = sms
+			}
+			parts := append(multiparts[key], msg.userData)
+			if len(parts) == msg.NParts {
+				delete(multiparts, key)
+				sms := baseMsg[key]
+				delete(baseMsg, key)
+				sms.Text = mergeConcatSMS(parts, msg.Unicode)
+				msgs = append(msgs, sms)
+			} else {
+				multiparts[key] = parts
+			}
+		} else {
+			msgs = append(msgs, sms)
+		}
 	}
 	sort.Sort(smsByDate(msgs))
 	return msgs, nil
@@ -160,6 +175,20 @@ type smsByDate []SMS
 func (s smsByDate) Len() int           { return len(s) }
 func (s smsByDate) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 func (s smsByDate) Less(i, j int) bool { return s[i].When.Before(s[j].When) }
+
+func mergeConcatSMS(parts []userData, uni bool) string {
+	p := make(map[int]string)
+	nparts := 0
+	for _, part := range parts {
+		p[part.Part] = part.Text(uni)
+		nparts = part.NParts
+	}
+	t := ""
+	for i := 1; i <= nparts; i++ {
+		t += p[i]
+	}
+	return t
+}
 
 func (r *Reader) Images() (images [][]byte, err error) {
 	// convenience method to extract JPEG images

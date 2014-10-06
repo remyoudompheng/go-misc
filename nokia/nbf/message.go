@@ -242,8 +242,8 @@ type userData struct {
 	SingleShift byte
 }
 
-func (msg deliverMessage) UserData() string {
-	if msg.Unicode {
+func (msg userData) Text(uni bool) string {
+	if uni {
 		runes := make([]uint16, len(msg.RawData)/2)
 		for i := range runes {
 			hi, lo := msg.RawData[2*i], msg.RawData[2*i+1]
@@ -257,6 +257,10 @@ func (msg deliverMessage) UserData() string {
 		}
 		return translateSMS(msg.RawData, &basicSMSset)
 	}
+}
+
+func (msg deliverMessage) UserData() string {
+	return msg.userData.Text(msg.Unicode)
 }
 
 func parseDeliverMessage(s []byte) (msg deliverMessage, size int, err error) {
@@ -304,20 +308,7 @@ type submitMessage struct {
 }
 
 func (msg submitMessage) UserData() string {
-	if msg.Unicode {
-		runes := make([]uint16, len(msg.RawData)/2)
-		for i := range runes {
-			hi, lo := msg.RawData[2*i], msg.RawData[2*i+1]
-			runes[i] = uint16(hi)<<8 | uint16(lo)
-		}
-		return string(utf16.Decode(runes))
-	} else {
-		if msg.SingleShift > 0 && msg.RawData[0] == 0x1b {
-			// FIXME: actually implement single shift table.
-			return translateSMS(msg.RawData[1:], &basicSMSset)
-		}
-		return translateSMS(msg.RawData, &basicSMSset)
-	}
+	return msg.userData.Text(msg.Unicode)
 }
 
 func parseSubmitMessage(s []byte) (msg submitMessage, size int, err error) {
