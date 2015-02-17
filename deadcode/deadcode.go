@@ -11,6 +11,8 @@ import (
 	"strings"
 )
 
+var includeTests = flag.Bool("t", false, "include test files")
+
 var exitCode int
 
 func main() {
@@ -40,7 +42,7 @@ func errorf(format string, args ...interface{}) {
 func doDir(name string) {
 	notests := func(info os.FileInfo) bool {
 		if !info.IsDir() && strings.HasSuffix(info.Name(), ".go") &&
-			!strings.HasSuffix(info.Name(), "_test.go") {
+			(!strings.HasSuffix(info.Name(), "_test.go") || *includeTests) {
 			return true
 		}
 		return false
@@ -157,6 +159,12 @@ func (p *Package) Visit(node ast.Node) ast.Visitor {
 		}
 	case *ast.FuncDecl:
 		// - function signatures
+		if *includeTests {
+			// Test* functions are always used
+			if strings.HasPrefix(n.Name.String(), "Test") {
+				u.used[n.Name.String()] = true
+			}
+		}
 		ast.Walk(&u, n.Type)
 	case *ast.TypeSpec:
 		// - type declarations
