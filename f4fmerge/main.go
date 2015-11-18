@@ -36,6 +36,9 @@ var wroteHdr = false
 
 var timeScale uint32
 
+var afrms []Frame
+var vfrms []Frame
+
 func handleBox(box Box) {
 	var err error
 	switch box.Type {
@@ -45,22 +48,25 @@ func handleBox(box Box) {
 		var binfo BootstrapInfo
 		binfo, err = handleBootstrapInfo(box)
 		timeScale = binfo.TimeScale
+		err = writeFLVHeader(os.Stdout)
 	case "mdat":
 		frames := handleMovieData(box)
 		for _, f := range frames {
-			if f.IsSeqHeader() {
-				log.Printf("skipping %s (%d bytes)", f.Describe(), len(f.Data))
+			if f.Type == 8 {
+				f.Stamp += 2800
+				afrms = append(afrms, f)
+			} else {
+				vfrms = append(vfrms, f)
+			}
+			switch {
+			case len(afrms) == 0, len(vfrms) == 0:
 				continue
-			}
-			stamp := time.Second * time.Duration(f.Stamp) / time.Duration(timeScale)
-			log.Printf("frame at %s: %s (%d bytes)", stamp, f.Describe(), len(f.Data))
-			if !wroteHdr {
-				wroteHdr = true
-				err = writeFLVHeader(os.Stdout)
-				_, err = os.Stdout.Write(box.Data)
-			}
-			if err == nil {
-				err = f.WriteTo(os.Stdout)
+			case afrms[0].Stamp < vfrms[0].Stamp:
+				err = writeFrame(afrms[0])
+				afrms = afrms[1:]
+			case vfrms[0].Stamp <= afrms[0].Stamp:
+				err = writeFrame(vfrms[0])
+				vfrms = vfrms[1:]
 			}
 			if err != nil {
 				log.Fatal(err)
@@ -70,6 +76,19 @@ func handleBox(box Box) {
 	if err != nil {
 		log.Printf("error in box %s: %s", box.Type, err)
 	}
+}
+
+var seenHeader [10]bool
+
+func writeFrame(f Frame) error {
+	if f.IsSeqHeader() && !seenHeader[f.Type] {
+		seenHeader[f.Type] = true
+		log.Printf("skipping %s (%d bytes)", f.Describe(), len(f.Data))
+		return nil
+	}
+	stamp := time.Second * time.Duration(f.Stamp) / time.Duration(timeScale)
+	log.Printf("frame at %s: %s (%d bytes)", stamp, f.Describe(), len(f.Data))
+	return f.WriteTo(os.Stdout)
 }
 
 func writeFLVHeader(w io.Writer) error {
