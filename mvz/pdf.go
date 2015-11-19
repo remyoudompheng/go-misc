@@ -2,7 +2,10 @@ package main
 
 import (
 	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
+	"hash"
 	"image"
 	"io"
 	"time"
@@ -13,14 +16,19 @@ import (
 
 type PDFWriter struct {
 	w       io.Writer
+	h       hash.Hash // for document ID
+	w2      io.Writer // multiwriter(w, h)
 	offset  int
 	objects []int // offsets
 	pages   []PDFID
 	err     error
-
-	// specific objects
-	infoId PDFID
 }
+
+const (
+	INFO_ID    = PDFID(1)
+	CATALOG_ID = PDFID(2)
+	PAGES_ID   = PDFID(3)
+)
 
 type PDFID int
 
@@ -32,17 +40,32 @@ const (
 )
 
 func NewPDFWriter(w io.Writer) (*PDFWriter, error) {
-	p := &PDFWriter{w: w}
+	p := &PDFWriter{
+		w:       w,
+		h:       md5.New(),
+		objects: []int{0, 0, 0},
+	}
+	p.w2 = io.MultiWriter(p.w, p.h)
 	p.print("%PDF-1.3")
 	return p, p.err
 }
 
 func (p *PDFWriter) WriteInfo(title string, mtime time.Time) error {
-	p.infoId, _ = p.startObj()
+	p.objects[INFO_ID-1] = p.offset
+	p.printf("%d 0 obj", INFO_ID)
+	p.print("<<")
 	p.printf("/Title (%s)", title)
 	p.printf("/CreationDate (D:%s)", mtime.Format("20060102150405"))
 	p.printf("/ModDate (D:%s)", mtime.Format("20060102150405"))
 	p.print("/Producer (mvztopdf 1.0)")
+	p.endObj()
+
+	// catalog
+	p.objects[CATALOG_ID-1] = p.offset
+	p.printf("%d 0 obj", CATALOG_ID)
+	p.print("<<")
+	p.print("/Type /Catalog")
+	p.printf("/Pages %d 0 R", PAGES_ID)
 	p.endObj()
 	return p.err
 }
@@ -50,6 +73,7 @@ func (p *PDFWriter) WriteInfo(title string, mtime time.Time) error {
 func (p *PDFWriter) WritePage(x, y Length, data []byte) (PDFID, error) {
 	id, _ := p.startObj()
 	p.print("/Type /Page")
+	p.printf("/Parent %d 0 R", PAGES_ID) // required
 	p.printf("/MediaBox [0 0 %.2f %.2f]", x, y)
 	p.printf("/CropBox [0 0 %.2f %.2f]", x, y)
 	p.printf("/Contents %d 0 R", id+1)
@@ -115,21 +139,23 @@ func (p *PDFWriter) writeStreamObject(data []byte) (PDFID, error) {
 	p.printf("/Length %d", len(data))
 	p.print(">>") // end dict
 	p.writeStream(data)
-	p.endObj()
+	p.print("endobj")
 	return id, p.err
 }
 
 func (p *PDFWriter) writeStream(data []byte) {
 	p.print("stream")
-	n, err := p.w.Write(data)
+	n, err := p.w2.Write(data)
 	p.offset += n
 	p.err = err
-	p.print("endstream")
+	p.print("\nendstream")
 }
 
 func (p *PDFWriter) Flush() error {
 	// pages
-	pagesId, _ := p.startObj()
+	p.objects[PAGES_ID-1] = p.offset
+	p.printf("%d 0 obj", PAGES_ID)
+	p.print("<<")
 	p.print("/Type /Pages")
 	buf := new(bytes.Buffer)
 	for _, page := range p.pages {
@@ -141,11 +167,6 @@ func (p *PDFWriter) Flush() error {
 	if p.err != nil {
 		return p.err
 	}
-	// catalog
-	rootId, _ := p.startObj()
-	p.print("/Type /Catalog")
-	p.printf("/Pages %d 0 R", pagesId)
-	p.endObj()
 	// xref table
 	xrefOff := p.offset
 	p.print("xref")
@@ -155,12 +176,12 @@ func (p *PDFWriter) Flush() error {
 		p.printf("%010d 00000 n", off)
 	}
 	// trailer
-	const id = "deadbeef"
+	id := hex.EncodeToString(p.h.Sum(nil))
 	p.print("trailer")
 	p.print("<<")
 	p.printf("/Size %d", len(p.objects)+1)
-	p.printf("/Info %d 0 R", p.infoId)
-	p.printf("/Root %d 0 R", rootId)
+	p.printf("/Info %d 0 R", INFO_ID)
+	p.printf("/Root %d 0 R", CATALOG_ID)
 	p.printf("/ID [<%s> <%s>]", id, id)
 	p.print(">>")
 	// end
@@ -175,25 +196,25 @@ func (p *PDFWriter) Flush() error {
 var nl = []byte{'\n'}
 
 func (p *PDFWriter) print(s string) error {
-	n, err := io.WriteString(p.w, s)
+	n, err := io.WriteString(p.w2, s)
 	p.offset += n
 	if err != nil {
 		p.err = err
 		return err
 	}
-	_, p.err = p.w.Write(nl)
+	_, p.err = p.w2.Write(nl)
 	p.offset++
 	return p.err
 }
 
 func (p *PDFWriter) printf(format string, args ...interface{}) error {
-	n, err := fmt.Fprintf(p.w, format, args...)
+	n, err := fmt.Fprintf(p.w2, format, args...)
 	p.offset += n
 	if err != nil {
 		p.err = err
 		return err
 	}
-	_, p.err = p.w.Write(nl)
+	_, p.err = p.w2.Write(nl)
 	p.offset++
 	return p.err
 }
