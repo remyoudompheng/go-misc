@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"image"
 	"io"
 	"time"
 )
@@ -53,7 +54,7 @@ func (p *PDFWriter) WritePage(x, y Length, data []byte) (PDFID, error) {
 	p.printf("/CropBox [0 0 %.2f %.2f]", x, y)
 	p.printf("/Contents %d 0 R", id+1)
 	p.endObj()
-	streamId, _ := p.writeStream(data)
+	streamId, _ := p.writeStreamObject(data)
 	if p.err == nil && streamId != id+1 {
 		panic("internal error: streamId != id+1")
 	}
@@ -61,20 +62,69 @@ func (p *PDFWriter) WritePage(x, y Length, data []byte) (PDFID, error) {
 	return id, p.err
 }
 
-func (p *PDFWriter) writeStream(data []byte) (PDFID, error) {
-	p.objects = append(p.objects, p.offset)
-	id := PDFID(len(p.objects))
-	p.printf("%d 0 obj", id)
-	p.print("<<")
+const DPI = 150
+
+func (p *PDFWriter) WriteJPEGPage(img image.Image, data []byte) (PDFID, error) {
+	x := Length(img.Bounds().Dx()) / 150 * INCH
+	y := Length(img.Bounds().Dy()) / 150 * INCH
+	id, _ := p.startObj()
+	p.print("/Type /Page")
+	p.printf("/MediaBox [0 0 %.2f %.2f]", x, y)
+	p.printf("/CropBox [0 0 %.2f %.2f]", x, y)
+	p.printf("/Contents %d 0 R", id+1)
+	p.printf("/Resources << /XObject << /I %d 0 R >> >>", id+2)
+	p.endObj()
+	// Postscript code
+	buf := new(bytes.Buffer)
+	buf.WriteString("q\n")
+	fmt.Fprintf(buf, "%.2f 0 0 %.2f 0 0 cm\n", x, y)
+	buf.WriteString("/I Do\n")
+	buf.WriteString("Q\n")
+	streamId, _ := p.writeStreamObject(buf.Bytes())
+	if p.err == nil && streamId != id+1 {
+		panic("internal error: streamId != id+1")
+	}
+	// Image
+	imgId, _ := p.writeImage(img.Bounds().Dx(), img.Bounds().Dy(), data)
+	if p.err == nil && imgId != id+2 {
+		panic("internal error: imgId != id+2")
+	}
+	p.pages = append(p.pages, id)
+	return id, p.err
+}
+
+func (p *PDFWriter) writeImage(w, h int, data []byte) (PDFID, error) {
+	id, _ := p.startObj()
+	p.print("/Type /XObject")
+	p.print("/Subtype /Image")
+	p.print("/Name /I")
+	p.print("/Filter [ /DCTDecode ]") // for JPEG
+	p.printf("/Width %d", w)
+	p.printf("/Height %d", h)
+	p.print("/ColorSpace /DeviceRGB")
+	p.print("/BitsPerComponent 8")
 	p.printf("/Length %d", len(data))
-	p.print(">>")
+	p.print(">>") // end dict
+	p.writeStream(data)
+	p.endObj()
+	return id, p.err
+}
+
+func (p *PDFWriter) writeStreamObject(data []byte) (PDFID, error) {
+	id, _ := p.startObj()
+	p.printf("/Length %d", len(data))
+	p.print(">>") // end dict
+	p.writeStream(data)
+	p.endObj()
+	return id, p.err
+}
+
+func (p *PDFWriter) writeStream(data []byte) {
 	p.print("stream")
 	n, err := p.w.Write(data)
 	p.offset += n
 	p.err = err
 	p.print("endstream")
-	p.print("endobj")
-	return id, p.err
 }
 
 func (p *PDFWriter) Flush() error {
