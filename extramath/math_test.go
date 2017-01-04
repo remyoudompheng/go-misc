@@ -20,19 +20,18 @@ func TestDivmod(t *testing.T) {
 	}
 }
 
+var A, B = uint64(123456789123456789), uint64(987654321)
+var quo, rem uint64 // global variables to force evaluation in benchs
+
 func BenchmarkDivmod(bm *testing.B) {
-	a, b := uint64(123456789123456789), uint64(987654321)
 	for i := 0; i < bm.N; i++ {
-		quo, rem := DivmodU64(a, b)
-		_, _ = quo, rem
+		quo, rem = DivmodU64(A, B)
 	}
 }
 
 func BenchmarkDivmodNaive(bm *testing.B) {
-	a, b := uint64(123456789123456789), uint64(987654321)
 	for i := 0; i < bm.N; i++ {
-		quo, rem := a/b, a%b
-		_, _ = quo, rem
+		quo, rem = A/B, A%B
 	}
 }
 
@@ -98,34 +97,31 @@ func TestImul(t *testing.T) {
 	}
 }
 
+var hi, lo uint64
+var ihi int64
+
 func BenchmarkMul(bm *testing.B) {
-	a, b := uint64(123456789123456789), uint64(987654321)
 	for i := 0; i < bm.N; i++ {
-		hi, lo := MulU64(a, b)
-		_, _ = hi, lo
+		hi, lo = MulU64(A, B)
 	}
 }
 
 func BenchmarkMulNaive(bm *testing.B) {
-	a, b := uint64(123456789123456789), uint64(987654321)
 	for i := 0; i < bm.N; i++ {
-		hi, lo := naiveMul(a, b)
-		_, _ = hi, lo
+		hi, lo = naiveMul(A, B)
 	}
 }
 
+var Ai, Bi = int64(123456789123456789), int64(987654321)
+
 func BenchmarkImul(bm *testing.B) {
-	a, b := int64(123456789123456789), int64(987654321)
 	for i := 0; i < bm.N; i++ {
-		hi, lo := MulI64(a, b)
-		_, _ = hi, lo
+		ihi, lo = MulI64(Ai, Bi)
 	}
 }
 
 func BenchmarkImulNaive(bm *testing.B) {
-	a, b := int64(123456789123456789), int64(987654321)
 	for i := 0; i < bm.N; i++ {
-		hi, lo := naiveImul(a, b)
-		_, _ = hi, lo
+		ihi, lo = naiveImul(Ai, Bi)
 	}
 }
