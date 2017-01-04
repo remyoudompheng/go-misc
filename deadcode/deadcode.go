@@ -14,7 +14,12 @@ import (
 
 var exitCode int
 
+var (
+	withTestFiles bool
+)
+
 func main() {
+	flag.BoolVar(&withTestFiles, "test", false, "include test files")
 	flag.Parse()
 	if flag.NArg() == 0 {
 		doDir(".")
@@ -50,7 +55,11 @@ func fatalf(format string, args ...interface{}) {
 
 func doDir(name string) {
 	var conf loader.Config
-	conf.Import(name)
+	if withTestFiles {
+		conf.ImportWithTests(name)
+	} else {
+		conf.Import(name)
+	}
 	prog, err := conf.Load()
 	if err != nil {
 		fatalf("cannot load package %s: %s", name, err)
