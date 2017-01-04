@@ -22,12 +22,12 @@ func main() {
 	flag.BoolVar(&withTestFiles, "test", false, "include test files")
 	flag.Parse()
 	if flag.NArg() == 0 {
-		doDir(".")
+		doDir(".", withTestFiles)
 	} else {
 		for _, name := range flag.Args() {
 			// Is it a directory?
 			if fi, err := os.Stat(name); err == nil && fi.IsDir() {
-				doDir(name)
+				doDir(name, withTestFiles)
 			} else {
 				fatalf("not a directory: %s", name)
 			}
@@ -53,9 +53,9 @@ func fatalf(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
-func doDir(name string) {
+func doDir(name string, withTests bool) []types.Object {
 	var conf loader.Config
-	if withTestFiles {
+	if withTests {
 		conf.ImportWithTests(name)
 	} else {
 		conf.Import(name)
@@ -64,9 +64,15 @@ func doDir(name string) {
 	if err != nil {
 		fatalf("cannot load package %s: %s", name, err)
 	}
+	var allUnused []types.Object
 	for _, pkg := range prog.Imported {
-		doPackage(prog, pkg)
+		unused := doPackage(prog, pkg)
+		for _, obj := range unused {
+			errorf(prog.Fset.Position(obj.Pos()), "%s is unused", obj.Name())
+		}
+		allUnused = append(allUnused, unused...)
 	}
+	return allUnused
 }
 
 type Package struct {
@@ -76,7 +82,7 @@ type Package struct {
 	used map[string]bool
 }
 
-func doPackage(prog *loader.Program, pkg *loader.PackageInfo) {
+func doPackage(prog *loader.Program, pkg *loader.PackageInfo) []types.Object {
 	used := make(map[types.Object]bool)
 	for _, file := range pkg.Files {
 		ast.Inspect(file, func(n ast.Node) bool {
@@ -93,13 +99,15 @@ func doPackage(prog *loader.Program, pkg *loader.PackageInfo) {
 	}
 
 	global := pkg.Pkg.Scope()
+	var unused []types.Object
 	for _, name := range global.Names() {
 		if pkg.Pkg.Name() == "main" && name == "main" {
 			continue
 		}
 		obj := global.Lookup(name)
 		if !used[obj] && (pkg.Pkg.Name() == "main" || !ast.IsExported(name)) {
-			errorf(prog.Fset.Position(obj.Pos()), "%s is unused", name)
+			unused = append(unused, obj)
 		}
 	}
+	return unused
 }
