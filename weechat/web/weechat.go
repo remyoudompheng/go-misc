@@ -15,8 +15,8 @@ import (
 	"time"
 	"unicode"
 
-	ws "code.google.com/p/go.net/websocket"
 	"github.com/remyoudompheng/go-misc/weechat"
+	ws "golang.org/x/net/websocket"
 )
 
 func Register(mux *http.ServeMux) {
@@ -144,8 +144,8 @@ const linesTplStr = `
 
 var linesTpl = template.Must(template.New("lines").
 	Funcs(template.FuncMap{
-	"isAction": isAction, "isSystem": isSystem,
-	"humanTime": humanTime, "htmlMessage": htmlMessage}).
+		"isAction": isAction, "isSystem": isSystem,
+		"humanTime": humanTime, "htmlMessage": htmlMessage}).
 	Parse(linesTplStr))
 
 func isAction(line weechat.LineData) bool { return line.Prefix == " *" }

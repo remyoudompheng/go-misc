@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"code.google.com/p/go.net/websocket"
+	"golang.org/x/net/websocket"
 )
 
 var logger = log.New(os.Stderr, "irc ", log.LstdFlags|log.Lshortfile)
