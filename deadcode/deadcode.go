@@ -8,6 +8,7 @@ import (
 	"go/types"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"golang.org/x/tools/go/loader"
 )
@@ -21,31 +22,19 @@ var (
 func main() {
 	flag.BoolVar(&withTestFiles, "test", false, "include test files")
 	flag.Parse()
+	ctx := &Context{
+		withTests: withTestFiles,
+	}
 	if flag.NArg() == 0 {
-		doDir(".", withTestFiles)
+		ctx.Load(".")
 	} else {
-		for _, name := range flag.Args() {
-			// Is it a directory?
-			if fi, err := os.Stat(name); err == nil && fi.IsDir() {
-				doDir(name, withTestFiles)
-			} else {
-				fatalf("not a directory: %s", name)
-			}
-		}
+		ctx.Load(flag.Args()...)
+	}
+	report := ctx.Process()
+	for _, obj := range report {
+		ctx.errorf(obj.Pos(), "%s is unused", obj.Name())
 	}
 	os.Exit(exitCode)
-}
-
-// error formats the error to standard error, adding program
-// identification and a newline
-func errorf(pos token.Position, format string, args ...interface{}) {
-	pwd, _ := os.Getwd()
-	f, err := filepath.Rel(pwd, pos.Filename)
-	if err == nil {
-		pos.Filename = f
-	}
-	fmt.Fprintf(os.Stderr, pos.String()+": "+format+"\n", args...)
-	exitCode = 2
 }
 
 func fatalf(format string, args ...interface{}) {
@@ -53,33 +42,50 @@ func fatalf(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
-func doDir(name string, withTests bool) []types.Object {
-	var conf loader.Config
-	if withTests {
-		conf.ImportWithTests(name)
-	} else {
-		conf.Import(name)
+type Context struct {
+	cwd       string
+	withTests bool
+
+	loader.Config
+}
+
+func (ctx *Context) Load(args ...string) {
+	for _, arg := range args {
+		if ctx.withTests {
+			ctx.Config.ImportWithTests(arg)
+		} else {
+			ctx.Config.Import(arg)
+		}
 	}
-	prog, err := conf.Load()
+}
+
+// error formats the error to standard error, adding program
+// identification and a newline
+func (ctx *Context) errorf(pos token.Pos, format string, args ...interface{}) {
+	if ctx.cwd == "" {
+		ctx.cwd, _ = os.Getwd()
+	}
+	p := ctx.Config.Fset.Position(pos)
+	f, err := filepath.Rel(ctx.cwd, p.Filename)
+	if err == nil {
+		p.Filename = f
+	}
+	fmt.Fprintf(os.Stderr, p.String()+": "+format+"\n", args...)
+	exitCode = 2
+}
+
+func (ctx *Context) Process() []types.Object {
+	prog, err := ctx.Config.Load()
 	if err != nil {
-		fatalf("cannot load package %s: %s", name, err)
+		fatalf("cannot load packages: %s", err)
 	}
 	var allUnused []types.Object
 	for _, pkg := range prog.Imported {
 		unused := doPackage(prog, pkg)
-		for _, obj := range unused {
-			errorf(prog.Fset.Position(obj.Pos()), "%s is unused", obj.Name())
-		}
 		allUnused = append(allUnused, unused...)
 	}
+	sort.Sort(objects(allUnused))
 	return allUnused
-}
-
-type Package struct {
-	p    *ast.Package
-	fs   *token.FileSet
-	decl map[string]ast.Node
-	used map[string]bool
 }
 
 func doPackage(prog *loader.Program, pkg *loader.PackageInfo) []types.Object {
@@ -111,3 +117,9 @@ func doPackage(prog *loader.Program, pkg *loader.PackageInfo) []types.Object {
 	}
 	return unused
 }
+
+type objects []types.Object
+
+func (s objects) Len() int           { return len(s) }
+func (s objects) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+func (s objects) Less(i, j int) bool { return s[i].Pos() < s[j].Pos() }

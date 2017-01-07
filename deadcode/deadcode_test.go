@@ -6,7 +6,9 @@ import (
 )
 
 func TestP1(t *testing.T) {
-	objs := doDir("./testdata/p1", false)
+	ctx := new(Context)
+	ctx.Load("./testdata/p1")
+	objs := ctx.Process()
 	compare(t, objs, []string{
 		"unused",
 		"g",
@@ -16,7 +18,9 @@ func TestP1(t *testing.T) {
 }
 
 func TestP2(t *testing.T) {
-	objs := doDir("./testdata/p2", false)
+	ctx := new(Context)
+	ctx.Load("./testdata/p2")
+	objs := ctx.Process()
 	compare(t, objs, []string{
 		"main",
 		"unused",
@@ -26,7 +30,9 @@ func TestP2(t *testing.T) {
 }
 
 func TestWithTestFiles(t *testing.T) {
-	objs := doDir("./testdata/p3", true)
+	ctx := &Context{withTests: true}
+	ctx.Load("./testdata/p3")
+	objs := ctx.Process()
 	// Only "y" is unused, x is used in tests.
 	compare(t, objs, []string{"y"})
 }
