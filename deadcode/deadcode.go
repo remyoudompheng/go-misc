@@ -22,16 +22,15 @@ func main() {
 	flag.BoolVar(&withTestFiles, "test", false, "include test files")
 	flag.Parse()
 	if flag.NArg() == 0 {
-		doDir(".", withTestFiles)
+		doDirs([]string{"."}, withTestFiles)
 	} else {
 		for _, name := range flag.Args() {
 			// Is it a directory?
-			if fi, err := os.Stat(name); err == nil && fi.IsDir() {
-				doDir(name, withTestFiles)
-			} else {
+			if fi, err := os.Stat(name); err != nil || !fi.IsDir() {
 				fatalf("not a directory: %s", name)
 			}
 		}
+		doDirs(flag.Args(), withTestFiles)
 	}
 	os.Exit(exitCode)
 }
@@ -53,16 +52,18 @@ func fatalf(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
-func doDir(name string, withTests bool) []types.Object {
+func doDirs(names []string, withTests bool) []types.Object {
 	var conf loader.Config
-	if withTests {
-		conf.ImportWithTests(name)
-	} else {
-		conf.Import(name)
+	for _, name := range names {
+		if withTests {
+			conf.ImportWithTests(name)
+		} else {
+			conf.Import(name)
+		}
 	}
 	prog, err := conf.Load()
 	if err != nil {
-		fatalf("cannot load package %s: %s", name, err)
+		fatalf("cannot load packages: %s", err)
 	}
 	var allUnused []types.Object
 	for _, pkg := range prog.Imported {

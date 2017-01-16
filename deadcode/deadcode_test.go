@@ -6,7 +6,7 @@ import (
 )
 
 func TestP1(t *testing.T) {
-	objs := doDir("./testdata/p1", false)
+	objs := doDirs([]string{"./testdata/p1"}, false)
 	compare(t, objs, []string{
 		"unused",
 		"g",
@@ -16,7 +16,7 @@ func TestP1(t *testing.T) {
 }
 
 func TestP2(t *testing.T) {
-	objs := doDir("./testdata/p2", false)
+	objs := doDirs([]string{"./testdata/p2"}, false)
 	compare(t, objs, []string{
 		"main",
 		"unused",
@@ -26,7 +26,7 @@ func TestP2(t *testing.T) {
 }
 
 func TestWithTestFiles(t *testing.T) {
-	objs := doDir("./testdata/p3", true)
+	objs := doDirs([]string{"./testdata/p3"}, true)
 	// Only "y" is unused, x is used in tests.
 	compare(t, objs, []string{"y"})
 }
