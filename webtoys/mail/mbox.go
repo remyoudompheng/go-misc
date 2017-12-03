@@ -1,3 +1,7 @@
+// Copyright 2017 Rémy Oudompheng. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package mail
 
 import (
@@ -26,10 +30,17 @@ type mboxMsg struct {
 	subject string
 }
 
-func Open(r io.ReaderAt) (Mailbox, error) {
-	// 1GB should be enough for everybody :)
-	rd := io.NewSectionReader(r, 0, 1<<30)
+const maxMessageSize = 50 * 1024 * 1024 // 50MB should be enough for everybody
+
+func Open(r io.ReaderAt) (*Mailbox, error) {
+	// r is usually a reader, for example if it is *os.File
+	rd, ok := r.(io.Reader)
+	if !ok {
+		// 1GB should be enough for everybody :)
+		rd = io.NewSectionReader(r, 0, 1<<30)
+	}
 	s := bufio.NewScanner(rd)
+	s.Buffer(nil, maxMessageSize)
 	s.Split(scanMessage)
 
 	offset := 0
@@ -45,9 +56,9 @@ func Open(r io.ReaderAt) (Mailbox, error) {
 		offset += len(data)
 	}
 	if err := s.Err(); err != nil {
-		return Mailbox{}, err
+		return nil, err
 	}
-	box := Mailbox{
+	box := &Mailbox{
 		r:    r,
 		msgs: msgs,
 	}
@@ -73,6 +84,8 @@ func scanMessage(data []byte, atEOF bool) (advance int, token []byte, err error)
 
 func (m *Mailbox) Message(idx int) (*mail.Message, error) {
 	msg := m.msgs[idx]
-	r := io.NewSectionReader(m.r, msg.offset, msg.length)
-	return mail.ReadMessage(r)
+	r := io.NewSectionReader(m.r, int64(msg.offset), int64(msg.length))
+	buf := bufio.NewReader(r)
+	buf.ReadBytes('\n') // discard first line
+	return mail.ReadMessage(buf)
 }
