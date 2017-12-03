@@ -66,19 +66,14 @@ func (m *MailReader) ListFolder(f string, start int) ([]Header, error) {
 	msgs = msgs[start:] // FIXME: pagination size
 
 	var results []Header
-	for i, _ := range msgs {
-		msg, err := box.Message(start + i)
-		if err != nil {
-			// OMG
-			panic(err)
-		}
+	for i, m := range msgs {
 		hdr := Header{
 			Folder: f,
 			Index:  start + i,
 
-			From:    msg.Header.Get("From"),
-			Subject: msg.Header.Get("Subject"),
-			Date:    msg.Header.Get("Date"),
+			From:    m.from,
+			Subject: m.subject,
+			Date:    m.date,
 		}
 		results = append(results, hdr)
 	}
