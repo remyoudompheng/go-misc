@@ -12,6 +12,8 @@ import (
 	"io/ioutil"
 	"mime"
 	"net/mail"
+	"sort"
+	"time"
 )
 
 // This file implements access to mbox files.
@@ -31,7 +33,7 @@ type mboxMsg struct {
 	length  int
 	from    string
 	subject string
-	date    string
+	date    time.Time
 }
 
 const maxMessageSize = 50 * 1024 * 1024 // 50MB should be enough for everybody
@@ -56,7 +58,7 @@ func Open(r io.ReaderAt) (*Mailbox, error) {
 		if err == nil {
 			msg.from = tryHeader(m, "From")
 			msg.subject = tryHeader(m, "Subject")
-			msg.date = tryHeader(m, "Date")
+			msg.date, _ = m.Header.Date()
 		}
 		msgs = append(msgs, msg)
 		offset += len(data)
@@ -64,6 +66,9 @@ func Open(r io.ReaderAt) (*Mailbox, error) {
 	if err := s.Err(); err != nil {
 		return nil, err
 	}
+	sort.Slice(msgs, func(i, j int) bool {
+		return msgs[i].date.After(msgs[j].date)
+	})
 	box := &Mailbox{
 		r:    r,
 		msgs: msgs,

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"time"
 )
 
 type MailReader struct {
@@ -19,9 +20,11 @@ type Header struct {
 	Folder string
 	Index  int
 
-	From    string
-	Subject string
-	Date    string
+	From       string
+	Subject    string
+	PrettyDate string
+	FullDate   string
+	Date       time.Time `json:"-"`
 }
 
 type Message struct {
@@ -54,6 +57,8 @@ func (m *MailReader) folder(f string) (*Mailbox, error) {
 }
 
 func (m *MailReader) ListFolder(f string, start int) ([]Header, error) {
+	now := time.Now()
+
 	box, err := m.folder(f)
 	if err != nil {
 		return nil, err
@@ -71,13 +76,31 @@ func (m *MailReader) ListFolder(f string, start int) ([]Header, error) {
 			Folder: f,
 			Index:  start + i,
 
-			From:    m.from,
-			Subject: m.subject,
-			Date:    m.date,
+			From:       m.from,
+			Subject:    m.subject,
+			Date:       m.date,
+			PrettyDate: prettyDate(now, m.date),
+			FullDate:   m.date.Format("2006-01-02 15:04:05"),
 		}
 		results = append(results, hdr)
 	}
 	return results, nil
+}
+
+func prettyDate(now, t time.Time) string {
+	t = t.In(now.Location())
+	yy, mm, dd := now.Date()
+	y, m, d := t.Date()
+	switch {
+	case yy == y && mm == m && dd == d:
+		// same date
+		return t.Format("today 15:04:05")
+	case yy == y, // same year
+		(y == yy-1 && m > mm): // last year
+		return t.Format("02 Jan 15:04")
+	default:
+		return t.Format("02 Jan 2006")
+	}
 }
 
 func (m *MailReader) Message(folder string, idx int) (*Message, error) {
@@ -101,14 +124,14 @@ func (m *MailReader) Message(folder string, idx int) (*Message, error) {
 	mainHdrs := [...]string{"From", "Date", "Subject", "To", "Cc"}
 	var msg Message
 	for _, h := range mainHdrs {
-		v := ms.Header.Get(h)
+		v := tryHeader(ms, h)
 		if v != "" {
 			msg.MainHeaders = append(msg.MainHeaders, h+": "+v)
 		}
 		delete(ms.Header, h)
 	}
 	for h := range ms.Header {
-		v := ms.Header.Get(h)
+		v := tryHeader(ms, h)
 		msg.OtherHeaders = append(msg.OtherHeaders, h+": "+v)
 	}
 	body, err := ioutil.ReadAll(ms.Body)
