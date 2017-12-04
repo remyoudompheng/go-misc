@@ -2,11 +2,14 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:generate bash packstatic.sh
+
 package mail
 
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"time"
 )
@@ -34,6 +37,7 @@ type Message struct {
 }
 
 func (m *MailReader) folder(f string) (*Mailbox, error) {
+	t0 := time.Now()
 	fpath, ok := m.BoxPaths[f]
 	if !ok {
 		return nil, fmt.Errorf("no mail folder %q", f)
@@ -53,6 +57,8 @@ func (m *MailReader) folder(f string) (*Mailbox, error) {
 		return nil, fmt.Errorf("cannot open folder %s: %s", fpath, err)
 	}
 	m.Boxes[f] = box
+	log.Printf("loaded mailbox %s in %.1fms", f,
+		time.Since(t0).Seconds()*1000)
 	return box, nil
 }
 

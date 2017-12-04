@@ -27,11 +27,20 @@ func NewServer(paths map[string]string) *Server {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	log.Printf("%s %s", req.Method, req.URL)
 	var err error
 	switch {
-	case strings.HasPrefix(req.URL.Path, "/folder"):
+	case req.URL.Path == "/",
+		req.URL.Path == "/index.html":
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(mailHtml))
+	case strings.HasPrefix(req.URL.Path, "/mailbox/"):
+		// URL: /mailbox/$MAILBOX
+		req.URL.Path = strings.TrimPrefix(req.URL.Path, "/mailbox/")
 		err = s.Folder(w, req)
-	case strings.HasPrefix(req.URL.Path, "/message"):
+	case strings.HasPrefix(req.URL.Path, "/message/"):
+		req.URL.Path = strings.TrimPrefix(req.URL.Path, "/message/")
+		// URL: /message/$MAILBOX/$MSGID
 		err = s.Message(w, req)
 	default:
 		http.NotFound(w, req)
@@ -43,7 +52,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (s *Server) Folder(w http.ResponseWriter, req *http.Request) error {
 	req.ParseForm()
-	folder := req.FormValue("folder")
+	folder := req.URL.Path
 	idxS := req.FormValue("idx")
 	idx := 0
 	if idxS != "" {
@@ -65,12 +74,16 @@ func (s *Server) Folder(w http.ResponseWriter, req *http.Request) error {
 }
 
 func (s *Server) Message(w http.ResponseWriter, req *http.Request) error {
-	req.ParseForm()
-	folder := req.FormValue("folder")
-	idxS := req.FormValue("idx")
-	idx, err := strconv.Atoi(idxS)
+	// Path = "$FOLDER/$MSGID"
+	parts := strings.Split(req.URL.Path, "/")
+	if len(parts) > 2 {
+		http.NotFound(w, req)
+		return nil
+	}
+	folder := parts[0]
+	idx, err := strconv.Atoi(parts[1])
 	if err != nil {
-		http.Error(w, "idx "+idxS+" is not a number",
+		http.Error(w, "idx "+parts[1]+" is not a number",
 			http.StatusBadRequest)
 		return nil
 	}
