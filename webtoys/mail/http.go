@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -34,6 +35,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		req.URL.Path == "/index.html":
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte(mailHtml))
+	case req.URL.Path == "/mailboxes/":
+		// URL: /mailboxes/
+		var folders []string
+		for f := range s.mr.BoxPaths {
+			folders = append(folders, f)
+		}
+		sort.Strings(folders)
+		w.Header().Set("Content-Type", "application/json")
+		err = json.NewEncoder(w).Encode(folders)
 	case strings.HasPrefix(req.URL.Path, "/mailbox/"):
 		// URL: /mailbox/$MAILBOX
 		req.URL.Path = strings.TrimPrefix(req.URL.Path, "/mailbox/")

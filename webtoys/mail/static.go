@@ -50,6 +50,11 @@ const mailHtml = `<!DOCTYPE html>
   <body>
     <div class="container">
       <div class="col-md-2">
+        <table class="table table-condensed table-striped">
+            <thead><tr><td>Folders</td></tr></thead>
+            <tbody id="folder-table">
+            </tbody>
+        </table>
       </div>
       <div class="col-md-10">
         <table class="table table-condensed table-striped">
@@ -93,6 +98,22 @@ const mailHtml = `<!DOCTYPE html>
     <!-- </template> -->
 
     <script>
+    function renderFolders(folders) {
+        var $tbl = $("#folder-table");
+        var rows = folders.map(function(f) {
+            var row = $("<tr><td></td></tr>");
+            row.children("td")
+               .data("folder", f)
+               .text(f);
+            return row
+        });
+        $tbl.append(rows);
+        $tbl.find("tr > td").click(function(ev) {
+            var f = $(this).data("folder");
+            $.get("/mailbox/"+f).success(renderFolder);
+        });
+    }
+
     function renderFolder(headers) {
       var tpl = $("#row-template")[0].content;
       $("#msg-table").empty();
@@ -134,7 +155,7 @@ const mailHtml = `<!DOCTYPE html>
     }
 
     $(document).ready(function() {
-      $.get("/mailbox/INBOX").success(renderFolder);
+        $.get("/mailboxes/").success(renderFolders);
     });
     </script>
   </body>
