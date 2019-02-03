@@ -6,8 +6,11 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"math/rand"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -204,6 +207,7 @@ var types string
 
 func main() {
 	var random bool
+	var compile bool
 	var outdir string
 	var n int
 	flag.BoolVar(&random, "random", false, "be random")
@@ -211,19 +215,27 @@ func main() {
 	flag.BoolVar(&linear, "linear", false, "produce linear trees")
 	flag.StringVar(&outdir, "out", "tmp", "output directory")
 	flag.IntVar(&n, "n", 25, "expression size")
+	flag.BoolVar(&compile, "compile", true, "run compiler")
 	flag.Parse()
 	if random {
 		rand.Seed(time.Now().UnixNano())
 	}
 	os.MkdirAll(outdir, 0755)
-	for i := 0; i < 10; i++ {
-		id = 0
+	for i := 0; i < 100; i++ {
+		id := (i % 10) + 1
 		data := generate(n)
-		f, err := os.Create(filepath.Join(outdir, fmt.Sprintf("dummy%02d.go", i+1)))
+		opath := filepath.Join(outdir, fmt.Sprintf("dummy%02d.go", id))
+		err := ioutil.WriteFile(opath, data, 0644)
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
-		f.Write(data)
-		f.Close()
+		log.Printf("generated %s (%d bytes)", opath, len(data))
+		if compile {
+			cmd := exec.Command("go", "tool", "compile", opath)
+			err := cmd.Run()
+			if err != nil {
+				log.Fatalf("filed to compile %s: %s", opath, err)
+			}
+		}
 	}
 }
